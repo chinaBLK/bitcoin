@@ -91,7 +91,7 @@ string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDecode)
                 str += strprintf("%d", CScriptNum(vch, false).getint());
             } else {
                 // the IsUnspendable check makes sure not to try to decode OP_RETURN data that may match the format of a signature
-                if (fAttemptSighashDecode && !script.IsUnspendable()) {
+                if (fAttemptSighashDecode) {
                     string strSigHashDecode;
                     // goal: only attempt to decode a defined sighash type from data that looks like a signature within a scriptSig.
                     // this won't decode correctly formatted public keys in Pubkey or Multisig scripts due to

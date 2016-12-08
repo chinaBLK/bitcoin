@@ -616,16 +616,6 @@ public:
     bool IsPushOnly(const_iterator pc) const;
     bool IsPushOnly() const;
 
-    /**
-     * Returns whether the script is guaranteed to fail at execution,
-     * regardless of the initial stack. This allows outputs to be pruned
-     * instantly when entering the UTXO set.
-     */
-    bool IsUnspendable() const
-    {
-        return (size() > 0 && *begin() == OP_RETURN);
-    }
-
     void clear()
     {
         // The default std::vector::clear() does not release memory.
