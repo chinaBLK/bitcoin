@@ -3879,7 +3879,7 @@ bool static IsCanonicalBlockSignature(const CBlock* pblock)
         return pblock->vchBlockSig.empty();
     }
 
-    return IsLowDERSignature(pblock->vchBlockSig, NULL);
+    return IsLowDERSignature(pblock->vchBlockSig, NULL, false);
 }
 
 bool ProcessNewBlock(CValidationState& state, const CChainParams& chainparams, const CNode* pfrom, const CBlock* pblock, bool fForceProcessing, CDiskBlockPos* dbp, const uint256& hash)
