@@ -2592,7 +2592,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             control.Add(vChecks);
         }
 		
-		if (tx.IsCoinStake())
+		if (!tx.IsCoinBase() && tx.IsCoinStake())
 			nActualStakeReward = tx.GetValueOut() - view.GetValueIn(tx);
 			
         
