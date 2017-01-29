@@ -2584,8 +2584,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                                      REJECT_INVALID, "bad-blk-sigops");
             }
 
-            if (tx.IsCoinStake())
-            	nActualStakeReward = tx.GetValueOut()-view.GetValueIn(tx);
+            if (tx.IsCoinStake())           	
+				nActualStakeReward = tx.GetValueOut()-view.GetValueIn(tx);
             else
                 nFees += view.GetValueIn(tx)-tx.GetValueOut();
 
