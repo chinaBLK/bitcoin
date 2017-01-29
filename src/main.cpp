@@ -2596,11 +2596,6 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     tx.GetHash().ToString(), FormatStateMessage(state));
             control.Add(vChecks);
         }
-		
-		if (!tx.IsCoinBase() && tx.IsCoinStake())
-			nActualStakeReward = tx.GetValueOut() - view.GetValueIn(tx);
-			
-        
 
         if (fAddressIndex) {
             for (unsigned int k = 0; k < tx.vout.size(); k++) {
