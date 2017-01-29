@@ -616,6 +616,11 @@ public:
     bool IsPushOnly(const_iterator pc) const;
     bool IsPushOnly() const;
 
+    bool IsUnspendable() const
+    {
+           return (size() > 0 && *begin() == OP_RETURN);
+    }
+
     void clear()
     {
         // The default std::vector::clear() does not release memory.
