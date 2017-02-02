@@ -1068,7 +1068,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState &state, const C
                 // unconfirmed ancestors anyway; doing otherwise is hopelessly
                 // insecure.
                 bool fReplacementOptOut = true;
-                if (fEnableReplacement)
+                if (0)
                 {
                     BOOST_FOREACH(const CTxIn &txin, ptxConflicting->vin)
                     {
