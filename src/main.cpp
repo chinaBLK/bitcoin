@@ -1079,7 +1079,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState &state, const C
                 // unconfirmed ancestors anyway; doing otherwise is hopelessly
                 // insecure.
                 bool fReplacementOptOut = true;
-                if (fEnableReplacement)
+                if (0)
                 {
                     BOOST_FOREACH(const CTxIn &txin, ptxConflicting->vin)
                     {
@@ -2543,8 +2543,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 						const CTxOut &prevout = view.GetOutputFor(tx.vin[j]);
 						uint160 hashBytes;
 						int addressType;
-						if (!tx.IsCoinStake())
-						{
+
 							if (prevout.scriptPubKey.IsPayToScriptHash()) {
 								hashBytes = uint160(vector <unsigned char>(prevout.scriptPubKey.begin()+2, prevout.scriptPubKey.begin()+22));
 								addressType = 2;
@@ -2557,13 +2556,18 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 							}
 
 							if (fAddressIndex && addressType > 0) {
+								if(tx.IsCoinStake())
+								{
+									LogPrint("removing", "when coinstake %s ", txhash.ToString());
+								}
+
 								// record spending activity
 								addressIndex.push_back(make_pair(CAddressIndexKey(addressType, hashBytes, pindex->nHeight, i, txhash, j, true), prevout.nValue * -1));
 
 								// remove address from unspent index
 								addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(addressType, hashBytes, input.prevout.hash, input.prevout.n), CAddressUnspentValue()));
 							}
-						}
+
 						if (fSpentIndex) {
 							// add the spent index to determine the txid and input that spent an output
 							// and to find the amount and address from an input
