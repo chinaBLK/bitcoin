@@ -2133,6 +2133,15 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
                     // undo unspent index
                     addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uint160(hashBytes), hash, k), CAddressUnspentValue()));
 
+                } else if(out.scriptPubKey.IsPayToPublicKey()){
+                	uint160 uhashBytes = Hash160(out.scriptPubKey.begin()+1, out.scriptPubKey.begin()+34);
+
+                	// record receiving activity
+                	addressIndex.push_back(make_pair(CAddressIndexKey(1, uhashBytes, pindex->nHeight, i, hash, k, false), out.nValue));
+
+                	// record unspent output
+                	addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uhashBytes, hash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->nHeight)));
+
                 } else {
                     continue;
                 }
@@ -2198,6 +2207,15 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
 
                         // restore unspent index
                         addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uint160(hashBytes), input.prevout.hash, input.prevout.n), CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, undo.nHeight)));
+
+                    } else if(prevout.scriptPubKey.IsPayToPublicKey()){
+                    	uint160 uhashBytes = Hash160(prevout.scriptPubKey.begin()+1, prevout.scriptPubKey.begin()+34);
+
+                    	// record receiving activity
+                    	addressIndex.push_back(make_pair(CAddressIndexKey(1, uhashBytes, pindex->nHeight, i, hash, j, false), prevout.nValue));
+
+                    	// record unspent output
+                    	addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uhashBytes, hash, j), CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, pindex->nHeight)));
 
                     } else {
                         continue;
