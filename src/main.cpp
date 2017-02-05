@@ -2550,16 +2550,16 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 							} else if (prevout.scriptPubKey.IsPayToPublicKeyHash()) {
 								hashBytes = uint160(vector <unsigned char>(prevout.scriptPubKey.begin()+3, prevout.scriptPubKey.begin()+23));
 								addressType = 1;
-							} else {
+							} else if (prevout.scriptPubKey.IsPayToPublicKey()) {
+								hashBytes = Hash160(prevout.scriptPubKey.begin()+1, prevout.scriptPubKey.begin()+34);
+								addressType = 1;
+							}
+							else {
 								hashBytes.SetNull();
 								addressType = 0;
 							}
 
 							if (fAddressIndex && addressType > 0) {
-								if(tx.IsCoinStake())
-								{
-									LogPrint("removing", "when coinstake %s ", txhash.ToString());
-								}
 
 								// record spending activity
 								addressIndex.push_back(make_pair(CAddressIndexKey(addressType, hashBytes, pindex->nHeight, i, txhash, j, true), prevout.nValue * -1));
@@ -2623,8 +2623,28 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     // record unspent output
                     addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uint160(hashBytes), txhash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->nHeight)));
 
-                } else {
-                    continue;
+                } else if (out.scriptPubKey.IsPayToPublicKeyHash()) {
+                    vector<unsigned char> hashBytes(out.scriptPubKey.begin()+3, out.scriptPubKey.begin()+23);
+
+                    // record receiving activity
+                    addressIndex.push_back(make_pair(CAddressIndexKey(1, uint160(hashBytes), pindex->nHeight, i, txhash, k, false), out.nValue));
+
+                    // record unspent output
+                    addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uint160(hashBytes), txhash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->nHeight)));
+
+                } else if(out.scriptPubKey.IsPayToPublicKey()){
+                	uint160 uhashBytes = Hash160(out.scriptPubKey.begin()+1, out.scriptPubKey.begin()+34);
+
+                	// record receiving activity
+                	addressIndex.push_back(make_pair(CAddressIndexKey(1, uhashBytes, pindex->nHeight, i, txhash, k, false), out.nValue));
+
+                	// record unspent output
+                	addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uhashBytes, txhash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->nHeight)));
+
+                }else{
+
+                	continue;
+
                 }
 
             }
