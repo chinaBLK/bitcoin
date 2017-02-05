@@ -423,9 +423,11 @@ struct CAddressUnspentKey {
     uint160 hashBytes;
     uint256 txhash;
     size_t index;
+    uint64_t nTime;
+
 
     size_t GetSerializeSize(int nType, int nVersion) const {
-        return 57;
+        return 65;
     }
     template<typename Stream>
     void Serialize(Stream& s, int nType, int nVersion) const {
@@ -433,6 +435,7 @@ struct CAddressUnspentKey {
         hashBytes.Serialize(s, nType, nVersion);
         txhash.Serialize(s, nType, nVersion);
         ser_writedata32(s, index);
+        ser_writedata64(s, nTime);
     }
     template<typename Stream>
     void Unserialize(Stream& s, int nType, int nVersion) {
@@ -440,13 +443,15 @@ struct CAddressUnspentKey {
         hashBytes.Unserialize(s, nType, nVersion);
         txhash.Unserialize(s, nType, nVersion);
         index = ser_readdata32(s);
+        nTime = ser_readdata64(s);
     }
 
-    CAddressUnspentKey(unsigned int addressType, uint160 addressHash, uint256 txid, size_t indexValue) {
+    CAddressUnspentKey(unsigned int addressType, uint160 addressHash, uint256 txid, size_t indexValue, uint64_t nTimeValue) {
         type = addressType;
         hashBytes = addressHash;
         txhash = txid;
         index = indexValue;
+        nTime = nTimeValue;
     }
 
     CAddressUnspentKey() {
@@ -458,6 +463,7 @@ struct CAddressUnspentKey {
         hashBytes.SetNull();
         txhash.SetNull();
         index = 0;
+        nTime = 0;
     }
 };
 
@@ -465,6 +471,7 @@ struct CAddressUnspentValue {
     CAmount satoshis;
     CScript script;
     int blockHeight;
+    uint64_t nTime;
 
     ADD_SERIALIZE_METHODS;
 
@@ -473,12 +480,14 @@ struct CAddressUnspentValue {
         READWRITE(satoshis);
         READWRITE(*(CScriptBase*)(&script));
         READWRITE(blockHeight);
+        READWRITE(nTime);
     }
 
-    CAddressUnspentValue(CAmount sats, CScript scriptPubKey, int height) {
+    CAddressUnspentValue(CAmount sats, CScript scriptPubKey, int height, uint32_t nTimeVal) {
         satoshis = sats;
         script = scriptPubKey;
         blockHeight = height;
+        nTime = nTimeVal;
     }
 
     CAddressUnspentValue() {
@@ -489,6 +498,7 @@ struct CAddressUnspentValue {
         satoshis = -1;
         script.clear();
         blockHeight = 0;
+        nTime = 0;
     }
 
     bool IsNull() const {
