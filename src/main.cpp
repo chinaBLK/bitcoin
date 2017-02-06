@@ -2140,7 +2140,7 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
                 	addressIndex.push_back(make_pair(CAddressIndexKey(1, uhashBytes, pindex->nHeight, i, hash, k, false), out.nValue));
 
                 	// record unspent output
-                	addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uhashBytes, hash, k), CAddressUnspentValue(out.nValue, out.scriptPubKey, pindex->nHeight, tx.nTime)));
+                	addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uhashBytes, hash, k), CAddressUnspentValue()));
 
                 } else {
                     continue;
@@ -2212,10 +2212,10 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
                     	uint160 uhashBytes = Hash160(prevout.scriptPubKey.begin()+1, prevout.scriptPubKey.begin()+34);
 
                     	// record receiving activity
-                    	addressIndex.push_back(make_pair(CAddressIndexKey(1, uhashBytes, pindex->nHeight, i, hash, j, false), prevout.nValue));
+                    	addressIndex.push_back(make_pair(CAddressIndexKey(1, uhashBytes, pindex->nHeight, i, hash, j, true), prevout.nValue * -1));
 
                     	// record unspent output
-                    	addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uhashBytes, hash, j), CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, pindex->nHeight, tx.nTime)));
+                    	addressUnspentIndex.push_back(make_pair(CAddressUnspentKey(1, uhashBytes, input.prevout.hash, input.prevout.n), CAddressUnspentValue(prevout.nValue, prevout.scriptPubKey, undo.nHeight, tx.nTime)));
 
                     } else {
                         continue;
