@@ -211,7 +211,6 @@ public:
 
         genesis.nBits = 0x1f00ffff;
         genesis.nNonce = 216178;
-        assert(genesis.GetHash() == uint256("0x0000724595fb3b9609d441cbfb9577615c292abf07d996d3edabc48de843642d"));
         consensus.hashGenesisBlock = genesis.GetHash();
 
 
