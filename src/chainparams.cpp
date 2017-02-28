@@ -192,7 +192,6 @@ public:
         consensus.nMajorityWindow = 100;
         consensus.BIP34Height = -1;
         consensus.BIP34Hash = uint256();
-        consensus.powLimit = uint256S("0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.nProtocolV1RetargetingFixedTime = 0;
         consensus.nProtocolV2Time = 0;
@@ -200,7 +199,7 @@ public:
         consensus.powLimit = uint256S("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.posLimit = uint256S("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
         consensus.posLimitV2 = uint256S("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-        consensus.nLastPOWBlock = 0x7fffffff;
+        consensus.nLastPOWBlock = 2147483647;
         pchMessageStart[0] = 0xcd;
         pchMessageStart[1] = 0xf2;
         pchMessageStart[2] = 0xc0;
@@ -210,8 +209,10 @@ public:
         nMaxTipAge = 0x7fffffff;
         nPruneAfterHeight = 1000;
 
-        //genesis = CreateGenesisBlock(1411111111, 216178, 0x1f00ffff, 2, 50 * COIN);
-        consensus.hashGenesisBlock = uint256S("0x0000724595fb3b9609d441cbfb9577615c292abf07d996d3edabc48de843642d");
+        genesis.nBits = 0x1f00ffff;
+        genesis.nNonce = 216178;
+        assert(genesis.GetHash() == uint256("0x0000724595fb3b9609d441cbfb9577615c292abf07d996d3edabc48de843642d"));
+        consensus.hashGenesisBlock = genesis.GetHash();
 
 
         vFixedSeeds.clear();
@@ -277,7 +278,9 @@ public:
         nDefaultPort = 18444;
         nPruneAfterHeight = 1000;
 
-        //genesis = CreateGenesisBlock(1411111111, 2, 0x207fffff, 1, 50 * COIN);
+        genesis.nTime = 1411111111;
+        genesis.nBits = 0x207fffff;
+        genesis.nNonce = 2;
         consensus.hashGenesisBlock = uint256S("0x523dda6d336047722cbaf1c5dce622298af791bac21b33bf6e2d5048b2a13e3d");
 
 
