@@ -2397,13 +2397,12 @@ static int64_t nTimeTotal = 0;
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck)
 {
     const CChainParams& chainparams = Params();
-    const uint256& hash = pindex->GetBlockHash();
     AssertLockHeld(cs_main);
 
     int64_t nTimeStart = GetTimeMicros();
 
     // Check it again in case a previous version let a bad block in
-    if (!CheckBlock(block, state, hash, !fJustCheck, !fJustCheck, !fJustCheck))
+    if (!CheckBlock(block, state, block.GetHash(), !fJustCheck, !fJustCheck, !fJustCheck))
         return false;
 
     // verify that the view's current state corresponds to the previous block
@@ -2412,10 +2411,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
-    if (hash == chainparams.GetConsensus().hashGenesisBlock) {
-        if (!fJustCheck)
-            view.SetBestBlock(pindex->GetBlockHash());
-        return true;
+    if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
+            if (!fJustCheck)
+                view.SetBestBlock(pindex->GetBlockHash());
+            return true;
     }
 
 
@@ -2424,7 +2423,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     	return state.DoS(100, error("%s: incorrect difficulty", __func__),
     	        		REJECT_INVALID, "bad-diffbits");
 
-    pindex->nStakeModifier = ComputeStakeModifier(pindex->pprev, block.IsProofOfStake() ? block.vtx[1].vin[0].prevout.hash : pindex->GetBlockHash());
+    pindex->nStakeModifier = ComputeStakeModifier(pindex->pprev, block.IsProofOfStake() ? block.vtx[1].vin[0].prevout.hash : block.GetHash());
 
     // Check proof-of-stake
     if (block.IsProofOfStake() && block.GetBlockTime() > chainparams.GetConsensus().nProtocolV3Time) {
