@@ -48,6 +48,9 @@ unsigned int GetNextTargetRequired(const CBlockIndex* pindexLast, const CBlockHe
 
 unsigned int CalculateNextTargetRequired(const CBlockIndex* pindexLast, int64_t nFirstBlockTime, const Consensus::Params& params)
 {
+	if (params.fPowNoRetargeting)
+	    	return pindexLast->nBits;
+
     int64_t nActualSpacing = pindexLast->GetBlockTime() - nFirstBlockTime;
     int64_t nTargetSpacing = params.IsProtocolV2(pindexLast->GetBlockTime()) ? params.nTargetSpacing : params.nTargetSpacingV1;
 
