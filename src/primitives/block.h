@@ -72,6 +72,7 @@ public:
 };
 
 
+
 class CBlock : public CBlockHeader
 {
 public:
@@ -134,6 +135,8 @@ public:
         block.nNonce         = nNonce;
         return block;
     }
+
+    bool SignBlock(CWallet& keystore, int64_t nFees);
 
     std::string ToString() const;
 };

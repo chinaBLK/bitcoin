@@ -32,9 +32,10 @@ struct CBlockTemplate
 /** Run the miner threads */
 void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams);
 /** Generate a new block, without valid proof-of-work */
-CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& scriptPubKeyIn, bool fProofOfStake = false);
+CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& scriptPubKeyIn, int64_t nFees, bool fProofOfStake = false);
 /** Modify the extranonce in a block */
 void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
 int64_t UpdateTime(CBlock* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev);
+bool CheckStake(CBlock* pblock, CWallet& wallet);
 
 #endif // BITCOIN_MINER_H

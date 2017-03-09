@@ -45,6 +45,7 @@ using namespace std;
 
 uint64_t nLastBlockTx = 0;
 uint64_t nLastBlockSize = 0;
+int64_t nLastCoinStakeSearchInterval = 0;
 
 class ScoreCompare
 {
@@ -73,7 +74,7 @@ int64_t UpdateTime(CBlock* pblock, const Consensus::Params& consensusParams, con
     return nNewTime - nOldTime;
 }
 
-CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& scriptPubKeyIn, bool fProofOfStake)
+CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& scriptPubKeyIn, int64_t* pFees, bool fProofOfStake)
 {
     // Create new block
     auto_ptr<CBlockTemplate> pblocktemplate(new CBlockTemplate());
@@ -390,8 +391,8 @@ void static BitcoinMiner(const CChainParams& chainparams)
             //
             unsigned int nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
             CBlockIndex* pindexPrev = chainActive.Tip();
-
-            auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, coinbaseScript->reserveScript));
+            int64_t nFees;
+            auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, coinbaseScript->reserveScript, nFees));
             if (!pblocktemplate.get())
             {
                 LogPrintf("Error in BitcoinMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
@@ -474,6 +475,111 @@ void static BitcoinMiner(const CChainParams& chainparams)
         return;
     }
 }
+
+void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
+{
+	boost::shared_ptr<CReserveScript> coinbaseScript;
+	GetMainSignals().ScriptForMining(coinbaseScript);
+	CBlockIndex* pindexBest = chainActive.Tip();
+    SetThreadPriority(THREAD_PRIORITY_LOWEST);
+
+    // Make this thread recognisable as the mining thread
+    RenameThread("blackcoin-miner");
+
+    CReserveKey reservekey(pwallet);
+
+    bool fTryToSync = true;
+
+    while (true)
+    {
+        while (pwallet->IsLocked())
+        {
+            nLastCoinStakeSearchInterval = 0;
+            MilliSleep(1000);
+        }
+
+        while (vNodes.empty() || IsInitialBlockDownload())
+        {
+            nLastCoinStakeSearchInterval = 0;
+            fTryToSync = true;
+            MilliSleep(1000);
+        }
+
+        if (fTryToSync)
+        {
+            fTryToSync = false;
+            if (vNodes.size() < 3 || pindexBest->GetBlockTime() < GetTime() - 10 * 60)
+            {
+                MilliSleep(60000);
+                continue;
+            }
+        }
+
+        //
+        // Create new block
+        //
+        unsigned int nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
+        CBlockIndex* pindexPrev = chainActive.Tip();
+        int64_t nFees;
+        auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, coinbaseScript->reserveScript, nFees, true));
+        if (!pblocktemplate.get())
+        {
+            LogPrintf("Error in BitcoinMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
+            return;
+        }
+        CBlock *pblock = &pblocktemplate->block;
+
+        // Trying to sign a block
+        if (pblock->SignBlock(*pwallet, nFees))
+        {
+            SetThreadPriority(THREAD_PRIORITY_NORMAL);
+            CheckStake(pblock, *pwallet);
+            SetThreadPriority(THREAD_PRIORITY_LOWEST);
+            MilliSleep(500);
+        }
+        else
+            MilliSleep(nMinerSleep);
+    }
+}
+
+bool CheckStake(CBlock* pblock, CWallet& wallet)
+{
+    uint256 proofHash = 0, hashTarget = 0;
+    uint256 hashBlock = pblock->GetHash();
+
+    if(!pblock->IsProofOfStake())
+        return error("CheckStake() : %s is not a proof-of-stake block", hashBlock.GetHex());
+
+    // verify hash target and signature of coinstake tx
+    if (!CheckProofOfStake(mapBlockIndex[pblock->hashPrevBlock], pblock->vtx[1], pblock->nBits, proofHash, hashTarget))
+        return error("CheckStake() : proof-of-stake checking failed");
+
+    //// debug print
+    LogPrintf("CheckStake() : new proof-of-stake block found  \n  hash: %s \nproofhash: %s  \ntarget: %s\n", hashBlock.GetHex(), proofHash.GetHex(), hashTarget.GetHex());
+    LogPrintf("%s\n", pblock->ToString());
+    LogPrintf("out %s\n", FormatMoney(pblock->vtx[1].GetValueOut()));
+
+    // Found a solution
+    {
+        LOCK(cs_main);
+        if (pblock->hashPrevBlock != hashBestChain)
+            return error("CheckStake() : generated block is stale");
+
+        // Track how many getdata requests this block gets
+        {
+            LOCK(wallet.cs_wallet);
+            wallet.mapRequestCount[hashBlock] = 0;
+        }
+
+        // Process this block the same as if we had received it from another node
+        if (!ProcessBlock(NULL, pblock))
+            return error("CheckStake() : ProcessBlock, block not accepted");
+    }
+
+    return true;
+}
+
+
 
 void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams)
 {
