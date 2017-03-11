@@ -148,6 +148,26 @@ public:
     unsigned int nBits;
     unsigned int nNonce;
 
+    unsigned int nFlags;  // ppcoin: block index flags
+    enum
+    {
+       BLOCK_PROOF_OF_STAKE = (1 << 0), // is proof-of-stake block
+       BLOCK_STAKE_ENTROPY  = (1 << 1), // entropy bit for stake modifier
+       BLOCK_STAKE_MODIFIER = (1 << 2), // regenerated stake modifier
+    };
+
+
+    uint256 bnStakeModifierV2;
+
+    // proof-of-stake specific fields
+    COutPoint prevoutStake;
+    unsigned int nStakeTime;
+
+    uint256 hashProof;
+
+    uint256 nChainTrust; // ppcoin: trust score of block chain
+    unsigned int nFlags;  // ppcoin: block index flags
+
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     uint32_t nSequenceId;
 
@@ -172,6 +192,7 @@ public:
         nTime          = 0;
         nBits          = 0;
         nNonce         = 0;
+        nFlags         = 0;
     }
 
     CBlockIndex()
@@ -234,6 +255,17 @@ public:
     int64_t GetBlockTime() const
     {
         return (int64_t)nTime;
+    }
+    bool GeneratedStakeModifier() const
+    {
+            return (nFlags & BLOCK_STAKE_MODIFIER);
+    }
+    // entropy bit for stake modifier if chosen by modifier
+    unsigned int GetStakeEntropyBit() const
+    {
+    // Take last bit of block hash as entropy bit
+        unsigned int nEntropyBit = ((GetBlockHash().GetLow64()) & 1llu);
+        return nEntropyBit;
     }
 private:
     enum { nMedianTimeSpan=11 };
