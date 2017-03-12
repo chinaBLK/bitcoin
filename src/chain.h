@@ -107,6 +107,7 @@ public:
 
     //! pointer to the index of the predecessor of this block
     CBlockIndex* pprev;
+    CBlockIndex* pnext;
 
     //! pointer to the index of some further predecessor of this block
     CBlockIndex* pskip;
@@ -175,6 +176,7 @@ public:
     {
         phashBlock = NULL;
         pprev = NULL;
+        pnext = NULL;
         pskip = NULL;
         nHeight = 0;
         nFile = 0;
