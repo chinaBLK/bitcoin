@@ -136,7 +136,7 @@ public:
         return block;
     }
 
-    bool SignBlock(CWallet& keystore, int64_t nFees);
+    bool SignBlock(CBlock& block, CWallet& keystore, int64_t nFees);
 
     std::string ToString() const;
 };

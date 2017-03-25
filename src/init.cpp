@@ -744,6 +744,19 @@ void InitParameterInteraction()
             LogPrintf("%s: parameter interaction: -externalip set -> setting -discover=0\n", __func__);
     }
 
+#ifdef ENABLE_WALLET
+    if (mapArgs.count("-reservebalance")) // ppcoin: reserve balance amount
+    {
+
+        if (SoftSetBoolArg("-reservebalance", false))
+        {
+            LogPrintf("Invalid amount for -reservebalance=<amount>");
+
+        }
+        ParseMoney(mapArgs["-reservebalance"], nReserveBalance);
+    }
+#endif
+
     if (GetBoolArg("-salvagewallet", false)) {
         // Rewrite just private keys: rescan to find transactions
         if (SoftSetBoolArg("-rescan", true))

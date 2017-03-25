@@ -412,6 +412,62 @@ void ProcessBlockAvailability(NodeId nodeid) {
     }
 }
 
+#ifdef ENABLE_WALLET
+// novacoin: attempt to generate suitable proof-of-stake
+bool CBlock::SignBlock(CBlock& block, CWallet& wallet, int64_t nFees)
+{
+    // if we are trying to sign
+    //    something except proof-of-stake block template
+    if (!vtx[0].vout[0].IsEmpty())
+        return false;
+
+    // if we are trying to sign
+    //    a complete proof-of-stake block
+    if (IsProofOfStake())
+        return true;
+
+    static int64_t nLastCoinStakeSearchTime = GetAdjustedTime(); // startup timestamp
+
+    CKey key;
+    CTransaction txCoinStake;
+    int nBestHeight = pindexBestHeader->nHeight;
+    if (Params().GetConsensus().IsProtocolV2(nBestHeight+1))
+        txCoinStake.nTime &= ~STAKE_TIMESTAMP_MASK;
+
+    int64_t nSearchTime = txCoinStake.nTime; // search to current time
+
+    if (nSearchTime > nLastCoinStakeSearchTime)
+    {
+        int64_t nSearchInterval = Params().GetConsensus().IsProtocolV2(nBestHeight+1) ? 1 : nSearchTime - nLastCoinStakeSearchTime;
+        if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key))
+        {
+            if (txCoinStake.nTime >= pindexBestHeader->GetPastTimeLimit()+1)
+            {
+                // make sure coinstake would meet timestamp protocol
+                //    as it would be the same as the block timestamp
+                vtx[0].nTime = nTime = txCoinStake.nTime;
+
+                // we have to make sure that we have no future timestamps in
+                //    our transactions set
+                for (vector<CTransaction>::iterator it = vtx.begin(); it != vtx.end();)
+                    if (it->nTime > nTime) { it = vtx.erase(it); } else { ++it; }
+
+                vtx.insert(vtx.begin() + 1, txCoinStake);
+
+                hashMerkleRoot = BlockMerkleRoot(block);
+
+                // append a signature to our block
+                return key.Sign(GetHash(), vchBlockSig);
+            }
+        }
+        nLastCoinStakeSearchInterval = nSearchTime - nLastCoinStakeSearchTime;
+        nLastCoinStakeSearchTime = nSearchTime;
+    }
+
+    return false;
+}
+#endif
+
 /** Update tracking information about which blocks a peer is assumed to have. */
 void UpdateBlockAvailability(NodeId nodeid, const uint256 &hash) {
     CNodeState *state = State(nodeid);
