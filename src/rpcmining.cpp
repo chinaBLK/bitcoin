@@ -29,6 +29,19 @@
 
 using namespace std;
 
+// Key used by getwork/getblocktemplate miners.
+// Allocated in InitRPCMining, free'd in ShutdownRPCMining
+static CReserveKey* pMiningKey = NULL;
+
+void InitRPCMining()
+{
+    if (!pwalletMain)
+        return;
+
+    // getwork/getblocktemplate mining rewards paid here:
+    pMiningKey = new CReserveKey(pwalletMain);
+}
+
 /**
  * Return average network hashes per second based on the last 'lookup' blocks,
  * or from the last difficulty change if 'lookup' is nonpositive.

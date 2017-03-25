@@ -1697,10 +1697,20 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // --- end disabled ---
 
     // Generate coins in the background
-    GenerateBitcoins(GetBoolArg("-gen", DEFAULT_GENERATE), GetArg("-genproclimit", DEFAULT_GENERATE_THREADS), chainparams);
+#ifdef ENABLE_WALLET
+    // InitRPCMining is needed here so getwork/getblocktemplate in the GUI debug console works properly.
+    InitRPCMining();
+#endif
+//    if (fServer)
+//    	StartHTTPServer();
 
-    // ********************************************************* Step 12: finished
-
+#ifdef ENABLE_WALLET
+    // Mine proof-of-stake blocks in the background
+    if (!GetBoolArg("-staking", true))
+        LogPrintf("Staking disabled\n");
+    else if (pwalletMain)
+        threadGroup.create_thread(boost::bind(&ThreadStakeMiner, pwalletMain));
+#endif
     SetRPCWarmupFinished();
     uiInterface.InitMessage(_("Done loading"));
 
