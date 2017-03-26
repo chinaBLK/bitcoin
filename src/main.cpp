@@ -2282,6 +2282,15 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
         }
     }
 
+    // Update block index on disk without changing it in memory.
+        // The memory index structure will be changed after the db commits.
+        if (pindex->pprev)
+        {
+            CDiskBlockIndex blockindexPrev(pindex->pprev);
+            blockindexPrev.hashNext = 0;
+            if (!pblocktree->Write(make_pair('b', blockindexPrev.GetBlockHash()), pindex))
+                return error("DisconnectBlock() : WriteBlockIndex failed");
+        }
 
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
@@ -2929,6 +2938,7 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
     if (fDoFullFlush || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) && nNow > nLastSetChain + (int64_t)DATABASE_WRITE_INTERVAL * 1000000)) {
         // Update best block in wallet (so we can detect restored wallets).
         GetMainSignals().SetBestChain(chainActive.GetLocator());
+        chainActive.Tip()->pprev->pnext = chainActive.Tip();
         nLastSetChain = nNow;
     }
     } catch (const std::runtime_error& e) {

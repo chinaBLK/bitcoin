@@ -88,7 +88,6 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
     txNew.vin.resize(1);
     txNew.vin[0].prevout.SetNull();
     txNew.vout.resize(1);
-    txNew.vout[0].scriptPubKey = scriptPubKeyIn;
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.push_back(CTransaction());
@@ -531,7 +530,7 @@ void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
         CBlock *pblock = &pblocktemplate->block;
 
         // Trying to sign a block
-        if (pblock->SignBlock(*pwallet, nFees))
+        if (pblock->SignBlock(*pblock, *pwallet, nFees))
         {
             SetThreadPriority(THREAD_PRIORITY_NORMAL);
             CheckStake(pblock, *pwallet, chainparams);
