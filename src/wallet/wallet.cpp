@@ -11,6 +11,7 @@
 #include "coincontrol.h"
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
+#include "kernel.h"
 #include "key.h"
 #include "keystore.h"
 #include "main.h"
@@ -496,7 +497,7 @@ void CWallet::AddToSpends(const uint256& wtxid)
         AddToSpends(txin.prevout, wtxid);
 }
 
-void CWallet::AvailableCoinsForStaking(vector<COutput>& vCoins) const
+void CWallet::AvailableCoinsForStaking(std::vector<COutput>& vCoins) const
 {
     vCoins.clear();
 
@@ -523,8 +524,7 @@ void CWallet::AvailableCoinsForStaking(vector<COutput>& vCoins) const
                     !IsLockedCoin((*it).first, i) && (pcoin->vout[i].nValue > 0))
                         vCoins.push_back(COutput(pcoin, i, nDepth,
                                                  ((mine & ISMINE_SPENDABLE) != ISMINE_NO) ||
-                                                 (mine & ISMINE_WATCH_SOLVABLE) != ISMINE_NO,
-                                                 (mine & (ISMINE_SPENDABLE | ISMINE_WATCH_SOLVABLE)) != ISMINE_NO));
+                                                 (mine & ISMINE_WATCH_SOLVABLE) != ISMINE_NO));
             }
         }
     }
@@ -599,7 +599,7 @@ bool CheckKernel(CBlockIndex* pindexPrev, unsigned int nBits, int64_t nTime, con
 int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, int64_t nFees)
 {
     int64_t nSubsidy;
-    if (IsProtocolV3(pindexPrev->nTime))
+    if (Params().GetConsensus().IsProtocolV3(pindexPrev->nTime))
         nSubsidy = COIN * 3 / 2;
     else
         nSubsidy = nCoinAge * 1 * CENT * 33 / (365 * 33 + 8);
@@ -607,63 +607,6 @@ int64_t GetProofOfStakeReward(const CBlockIndex* pindexPrev, int64_t nCoinAge, i
     LogPrint("creation", "GetProofOfStakeReward(): create=%s nCoinAge=%d\n", FormatMoney(nSubsidy), nCoinAge);
 
     return nSubsidy + nFees;
-}
-
-// ppcoin: total coin age spent in transaction, in the unit of coin-days.
-// Only those coins meeting minimum age requirement counts. As those
-// transactions not in main chain are not currently indexed so we
-// might not find out about their coin age. Older transactions are
-// guaranteed to be in main chain by sync-checkpoint. This rule is
-// introduced to help nodes establish a consistent view of the coin
-// age (trust score) of competing branches.
-bool CTransaction::GetCoinAge(CBlockTreeDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const
-{
-	arith_uint256 bnCentSecond = 0;  // coin age in the unit of cent-seconds
-    nCoinAge = 0;
-
-    if (IsCoinBase())
-        return true;
-
-    BOOST_FOREACH(const CTxIn& txin, vin)
-    {
-        // First try finding the previous transaction in database
-        CTransaction txPrev;
-    	CDiskTxPos txindex;
-        if (!ReadFromDisk(txPrev, txindex, *pblocktree, txin.prevout))
-            continue;  // previous transaction not in main chain
-        if (nTime < txPrev.nTime)
-            return false;  // Transaction timestamp violation
-
-        if (IsProtocolV3(nTime))
-        {
-            int nSpendDepth;
-            if (IsConfirmedInNPrevBlocks(txindex, pindexPrev, nStakeMinConfirmations - 1, nSpendDepth))
-            {
-                LogPrint("coinage", "coin age skip nSpendDepth=%d\n", nSpendDepth + 1);
-                continue; // only count coins meeting min confirmations requirement
-            }
-        }
-        else
-        {
-            // Read block header
-        	CBlock block;
-        	const CDiskBlockPos& pos = CDiskBlockPos(txindex.nFile, txindex.nPos);
-        	if (!ReadBlockFromDisk(block, pos, Params().GetConsensus()))
-                return false; // unable to read block of previous transaction
-            if (block.GetBlockTime() + nStakeMinAge > nTime)
-                continue; // only count coins meeting min age requirement
-        }
-
-        int64_t nValueIn = txPrev.vout[txin.prevout.n].nValue;
-        bnCentSecond += arith_uint256(nValueIn) * (nTime-txPrev.nTime) / CENT;
-
-        LogPrint("coinage", "coin age nValueIn=%d nTimeDiff=%d bnCentSecond=%s\n", nValueIn, nTime - txPrev.nTime, bnCentSecond.ToString());
-    }
-
-    arith_uint256 bnCoinDay = bnCentSecond * CENT / COIN / (24 * 60 * 60);
-    LogPrint("coinage", "coin age bnCoinDay=%s\n", bnCoinDay.ToString());
-    nCoinAge = bnCoinDay.GetLow64();
-    return true;
 }
 
 bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, CAmount& nFees, CTransaction& tx, CKey& key)
@@ -717,7 +660,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
             {
                 // Found a kernel
                 LogPrint("coinstake", "CreateCoinStake : kernel found\n");
-                std::vector<std::vector<unsigned char> > vSolutions;
+                vector<vector<unsigned char> > vSolutions;
                 txnouttype whichType;
                 CScript scriptPubKeyOut;
                 scriptPubKeyKernel = pcoin.first->vout[pcoin.second].scriptPubKey;
@@ -741,11 +684,11 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
                         break;  // unable to find corresponding public key
                     }
 
-                    scriptPubKeyOut << key.GetPubKey() << OP_CHECKSIG;
+                    scriptPubKeyOut << key.GetPubKey().getvch() << OP_CHECKSIG;
                 }
                 if (whichType == TX_PUBKEY)
                 {
-                	std::vector<std::vector<unsigned char> >& vchPubKey = vSolutions[0];
+                	vector<unsigned char>& vchPubKey = vSolutions[0];
                     if (!keystore.GetKey(uint160(vchPubKey), key))
                     {
                         LogPrint("coinstake", "CreateCoinStake : failed to get key for kernel type=%d\n", whichType);
@@ -806,7 +749,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     // Calculate coin age reward
         {
             uint64_t nCoinAge;
-            if (!tx.GetCoinAge(*pblocktree, pindexPrev, nCoinAge))
+            if (!GetCoinAge(tx, *pblocktree, pindexPrev, nCoinAge))
                 return error("CreateCoinStake : failed to calculate coin age");
 
             int64_t nReward = GetProofOfStakeReward(pindexPrev, nCoinAge, nFees);

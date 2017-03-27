@@ -237,7 +237,7 @@ public:
     // and bypass the constness. This is safe, as they update the entire
     // structure, including the hash.
     const int32_t nVersion;
-    const uint32_t nTime;
+    unsigned int nTime;
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
     const uint32_t nLockTime;
@@ -305,7 +305,6 @@ public:
     }
 
     std::string ToString() const;
-    bool GetCoinAge(CBlockTreeDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const;
 };
 
 /** A mutable version of CTransaction. */
@@ -336,7 +335,6 @@ struct CMutableTransaction
      * fly, as opposed to GetHash() in CTransaction, which uses a cached result.
      */
     uint256 GetHash() const;
-    bool CTransaction::GetCoinAge(CBlockTreeDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge) const;
 };
 
 #endif // BITCOIN_PRIMITIVES_TRANSACTION_H

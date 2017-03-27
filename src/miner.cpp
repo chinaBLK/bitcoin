@@ -26,6 +26,7 @@
 #include "utilmoneystr.h"
 #include "validationinterface.h"
 #include "kernel.h"
+#include "wallet/wallet.h"
 
 #include <boost/thread.hpp>
 #include <boost/tuple/tuple.hpp>
@@ -47,6 +48,7 @@ using namespace std;
 uint64_t nLastBlockTx = 0;
 uint64_t nLastBlockSize = 0;
 int64_t nLastCoinStakeSearchInterval = 0;
+unsigned int nMinerSleep = 500;
 
 class ScoreCompare
 {
@@ -391,8 +393,8 @@ void static BitcoinMiner(const CChainParams& chainparams)
             //
             unsigned int nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
             CBlockIndex* pindexPrev = chainActive.Tip();
-            int64_t nFees;
-            auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, coinbaseScript->reserveScript, nFees));
+            int64_t *nFees;
+            auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, coinbaseScript->reserveScript, nFees, false));
             if (!pblocktemplate.get())
             {
                 LogPrintf("Error in BitcoinMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
@@ -476,6 +478,28 @@ void static BitcoinMiner(const CChainParams& chainparams)
     }
 }
 
+void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams)
+{
+    static boost::thread_group* minerThreads = NULL;
+
+    if (nThreads < 0)
+        nThreads = GetNumCores();
+
+    if (minerThreads != NULL)
+    {
+        minerThreads->interrupt_all();
+        delete minerThreads;
+        minerThreads = NULL;
+    }
+
+    if (nThreads == 0 || !fGenerate)
+        return;
+
+    minerThreads = new boost::thread_group();
+    for (int i = 0; i < nThreads; i++)
+        minerThreads->create_thread(boost::bind(&BitcoinMiner, boost::cref(chainparams)));
+}
+
 void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
 {
 	boost::shared_ptr<CReserveScript> coinbaseScript;
@@ -521,7 +545,7 @@ void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
         unsigned int nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
         CBlockIndex* pindexPrev = chainActive.Tip();
         int64_t nFees;
-        auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, coinbaseScript->reserveScript, nFees, true));
+        auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, coinbaseScript->reserveScript, &nFees, true));
         if (!pblocktemplate.get())
         {
             LogPrintf("Error in BitcoinMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
@@ -530,7 +554,7 @@ void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
         CBlock *pblock = &pblocktemplate->block;
 
         // Trying to sign a block
-        if (pblock->SignBlock(*pblock, *pwallet, nFees))
+        if (SignBlock(*pblock, *pwallet, nFees))
         {
             SetThreadPriority(THREAD_PRIORITY_NORMAL);
             CheckStake(pblock, *pwallet, chainparams);
@@ -542,9 +566,28 @@ void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
     }
 }
 
+void StakeBlackcoins(bool fStake, CWallet *pwallet, const CChainParams& chainparams)
+{
+    static boost::thread_group* stakeThread = NULL;
+
+    if (stakeThread != NULL)
+    {
+        stakeThread->interrupt_all();
+        delete stakeThread;
+        stakeThread = NULL;
+    }
+
+	if(fStake)
+	{
+	    stakeThread = new boost::thread_group();
+
+	    stakeThread->create_thread(boost::bind(&ThreadStakeMiner, boost::cref(pwallet), boost::cref(chainparams)));
+	}
+}
+
 bool CheckStake(CBlock* pblock, CWallet& wallet, const CChainParams& chainparams)
 {
-    uint256 proofHash = 0, hashTarget = 0;
+    uint256 proofHash, hashTarget;
     uint256 hashBlock = pblock->GetHash();
 
     if(!pblock->IsProofOfStake())
@@ -580,24 +623,24 @@ bool CheckStake(CBlock* pblock, CWallet& wallet, const CChainParams& chainparams
     return true;
 }
 
-void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams)
-{
-    static boost::thread_group* minerThreads = NULL;
-
-    if (nThreads < 0)
-        nThreads = GetNumCores();
-
-    if (minerThreads != NULL)
-    {
-        minerThreads->interrupt_all();
-        delete minerThreads;
-        minerThreads = NULL;
-    }
-
-    if (nThreads == 0 || !fGenerate)
-        return;
-
-    minerThreads = new boost::thread_group();
-    for (int i = 0; i < nThreads; i++)
-        minerThreads->create_thread(boost::bind(&BitcoinMiner, boost::cref(chainparams)));
-}
+//void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams)
+//{
+//    static boost::thread_group* minerThreads = NULL;
+//
+//    if (nThreads < 0)
+//        nThreads = GetNumCores();
+//
+//    if (minerThreads != NULL)
+//    {
+//        minerThreads->interrupt_all();
+//        delete minerThreads;
+//        minerThreads = NULL;
+//    }
+//
+//    if (nThreads == 0 || !fGenerate)
+//        return;
+//
+//    minerThreads = new boost::thread_group();
+//    for (int i = 0; i < nThreads; i++)
+//        minerThreads->create_thread(boost::bind(&BitcoinMiner, boost::cref(chainparams)));
+//}

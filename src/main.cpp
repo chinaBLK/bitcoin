@@ -16,6 +16,8 @@
 #include "consensus/validation.h"
 #include "hash.h"
 #include "init.h"
+#include "key.h"
+#include "kernel.h"
 #include "merkleblock.h"
 #include "net.h"
 #include "policy/policy.h"
@@ -37,6 +39,8 @@
 #include "utilstrencodings.h"
 #include "validationinterface.h"
 #include "versionbits.h"
+#include "key.h"
+#include "wallet/wallet.h"
 
 #include <sstream>
 
@@ -414,16 +418,16 @@ void ProcessBlockAvailability(NodeId nodeid) {
 
 #ifdef ENABLE_WALLET
 // novacoin: attempt to generate suitable proof-of-stake
-bool CBlock::SignBlock(CBlock& block, CWallet& wallet, int64_t nFees)
+bool SignBlock(CBlock& block, CWallet& wallet, int64_t nFees)
 {
     // if we are trying to sign
     //    something except proof-of-stake block template
-    if (!vtx[0].vout[0].IsEmpty())
+    if (!block.vtx[0].vout[0].IsEmpty())
         return false;
 
     // if we are trying to sign
     //    a complete proof-of-stake block
-    if (IsProofOfStake())
+    if (block.IsProofOfStake())
         return true;
 
     static int64_t nLastCoinStakeSearchTime = GetAdjustedTime(); // startup timestamp
@@ -439,25 +443,25 @@ bool CBlock::SignBlock(CBlock& block, CWallet& wallet, int64_t nFees)
     if (nSearchTime > nLastCoinStakeSearchTime)
     {
         int64_t nSearchInterval = Params().GetConsensus().IsProtocolV2(nBestHeight+1) ? 1 : nSearchTime - nLastCoinStakeSearchTime;
-        if (wallet.CreateCoinStake(wallet, nBits, nSearchInterval, nFees, txCoinStake, key))
+        if (wallet.CreateCoinStake(wallet, block.nBits, nSearchInterval, nFees, txCoinStake, key))
         {
             if (txCoinStake.nTime >= pindexBestHeader->GetPastTimeLimit()+1)
             {
                 // make sure coinstake would meet timestamp protocol
                 //    as it would be the same as the block timestamp
-                vtx[0].nTime = nTime = txCoinStake.nTime;
+            	block.vtx[0].nTime = block.nTime = txCoinStake.nTime;
 
                 // we have to make sure that we have no future timestamps in
                 //    our transactions set
-                for (vector<CTransaction>::iterator it = vtx.begin(); it != vtx.end();)
-                    if (it->nTime > nTime) { it = vtx.erase(it); } else { ++it; }
+                for (vector<CTransaction>::iterator it = block.vtx.begin(); it != block.vtx.end();)
+                    if (it->nTime > block.nTime) { it = block.vtx.erase(it); } else { ++it; }
 
-                vtx.insert(vtx.begin() + 1, txCoinStake);
+                block.vtx.insert(block.vtx.begin() + 1, txCoinStake);
 
-                hashMerkleRoot = BlockMerkleRoot(block);
+                block.hashMerkleRoot = BlockMerkleRoot(block);
 
                 // append a signature to our block
-                return key.Sign(GetHash(), vchBlockSig);
+                return key.Sign(block.GetHash(), block.vchBlockSig);
             }
         }
         nLastCoinStakeSearchInterval = nSearchTime - nLastCoinStakeSearchTime;
@@ -2287,8 +2291,8 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
         if (pindex->pprev)
         {
             CDiskBlockIndex blockindexPrev(pindex->pprev);
-            blockindexPrev.hashNext = 0;
-            if (!pblocktree->Write(make_pair('b', blockindexPrev.GetBlockHash()), pindex))
+            blockindexPrev.hashNext.SetNull();
+            if (!pblocktree->Write(make_pair('b', blockindexPrev.GetBlockHash()), CDiskBlockIndex(pindex)))
                 return error("DisconnectBlock() : WriteBlockIndex failed");
         }
 
@@ -2311,6 +2315,8 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
 
     return fClean;
 }
+
+
 
 void static FlushBlockFile(bool fFinalize = false)
 {
@@ -3431,6 +3437,63 @@ bool ReconsiderBlock(CValidationState& state, CBlockIndex *pindex) {
         pindex = pindex->pprev;
     }
     return true;
+}
+
+// ppcoin: total coin age spent in transaction, in the unit of coin-days.
+// Only those coins meeting minimum age requirement counts. As those
+// transactions not in main chain are not currently indexed so we
+// might not find out about their coin age. Older transactions are
+// guaranteed to be in main chain by sync-checkpoint. This rule is
+// introduced to help nodes establish a consistent view of the coin
+// age (trust score) of competing branches.
+bool GetCoinAge(const CTransaction& tx, CBlockTreeDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge)
+{
+	arith_uint256 bnCentSecond = 0;  // coin age in the unit of cent-seconds
+	    nCoinAge = 0;
+
+	    if (tx.IsCoinBase())
+	        return true;
+
+	    BOOST_FOREACH(const CTxIn& txin, tx.vin)
+	    {
+	        // First try finding the previous transaction in database
+	    	CTransaction txPrev;
+	    	CDiskTxPos txindex;
+	    	if (!ReadFromDisk(txPrev, txindex, *pblocktree, txin.prevout))
+	            continue;  // previous transaction not in main chain
+	        if (tx.nTime < txPrev.nTime)
+	            return false;  // Transaction timestamp violation
+
+	        if (Params().GetConsensus().IsProtocolV3(tx.nTime))
+	        {
+	            int nSpendDepth;
+	            if (IsConfirmedInNPrevBlocks(txindex, pindexPrev, nStakeMinConfirmations - 1, nSpendDepth))
+	            {
+	                LogPrint("coinage", "coin age skip nSpendDepth=%d\n", nSpendDepth + 1);
+	                continue; // only count coins meeting min confirmations requirement
+	            }
+	        }
+	        else
+	        {
+	            // Read block header
+	        	CBlock block;
+	        	const CDiskBlockPos& pos = CDiskBlockPos(txindex.nFile, txindex.nPos);
+	        	if (!ReadBlockFromDisk(block, pos, Params().GetConsensus()))
+	                return false; // unable to read block of previous transaction
+	            if (block.GetBlockTime() + nStakeMinAge > tx.nTime)
+	                continue; // only count coins meeting min age requirement
+	        }
+
+	        int64_t nValueIn = txPrev.vout[txin.prevout.n].nValue;
+	        bnCentSecond += arith_uint256(nValueIn) * (tx.nTime-txPrev.nTime) / CENT;
+
+	        LogPrint("coinage", "coin age nValueIn=%d nTimeDiff=%d bnCentSecond=%s\n", nValueIn, tx.nTime - txPrev.nTime, bnCentSecond.ToString());
+	    }
+
+	    arith_uint256 bnCoinDay = bnCentSecond * CENT / COIN / (24 * 60 * 60);
+	    LogPrint("coinage", "coin age bnCoinDay=%s\n", bnCoinDay.ToString());
+	    nCoinAge = bnCoinDay.GetLow64();
+	    return true;
 }
 
 static CBlockIndex* AddToBlockIndex(const CBlockHeader& block, const uint256& hash)

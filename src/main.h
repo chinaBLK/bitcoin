@@ -29,7 +29,6 @@
 #include <vector>
 
 #include <boost/unordered_map.hpp>
-
 class CBlockIndex;
 class CBlockTreeDB;
 class CBloomFilter;
@@ -39,6 +38,9 @@ class CScriptCheck;
 class CTxMemPool;
 class CValidationInterface;
 class CValidationState;
+
+class CDiskTxPos;
+class CWallet;
 
 struct CNodeStateStats;
 struct LockPoints;
@@ -155,6 +157,7 @@ extern size_t nCoinCacheUsage;
 extern CFeeRate minRelayTxFee;
 extern bool fAlerts;
 extern bool fEnableReplacement;
+extern int64_t nLastCoinStakeSearchInterval;
 
 /** Best header we've seen so far (used for getheaders queries' starting points). */
 extern CBlockIndex *pindexBestHeader;
@@ -892,6 +895,10 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
  * Determine what nVersion a new block should use.
  */
 int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
+
+bool SignBlock(CBlock& block, CWallet& wallet, int64_t nFees);
+
+bool GetCoinAge(const CTransaction& tx, CBlockTreeDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge);
 
 /** Reject codes greater or equal to this can be returned by AcceptToMemPool
  * for transactions, to signal internal conditions. They cannot and should not

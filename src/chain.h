@@ -167,7 +167,6 @@ public:
     uint256 hashProof;
 
     uint256 nChainTrust; // ppcoin: trust score of block chain
-    unsigned int nFlags;  // ppcoin: block index flags
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     uint32_t nSequenceId;
