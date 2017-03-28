@@ -194,7 +194,7 @@ void Shutdown()
 #ifdef ENABLE_WALLET
     if (pwalletMain)
     {
-    	StakeBlackcoins(false, pwalletMain);
+    	StakeBlackcoins(false, pwalletMain, Params());
         pwalletMain->Flush(false);
     }
 #endif
@@ -1706,7 +1706,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (!GetBoolArg("-staking", true))
         LogPrintf("Staking disabled\n");
     else if (pwalletMain)
-    	StakeBlackcoins(true, pwalletMain);
+    	StakeBlackcoins(true, pwalletMain, Params());
 #endif
     SetRPCWarmupFinished();
     uiInterface.InitMessage(_("Done loading"));

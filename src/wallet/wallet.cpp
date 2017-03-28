@@ -522,9 +522,9 @@ void CWallet::AvailableCoinsForStaking(std::vector<COutput>& vCoins) const
                 isminetype mine = IsMine(pcoin->vout[i]);
                 if (!(IsSpent(wtxid, i)) && mine != ISMINE_NO &&
                     !IsLockedCoin((*it).first, i) && (pcoin->vout[i].nValue > 0))
-                        vCoins.push_back(COutput(pcoin, i, nDepth,
-                                                 ((mine & ISMINE_SPENDABLE) != ISMINE_NO) ||
-                                                 (mine & ISMINE_WATCH_SOLVABLE) != ISMINE_NO));
+                	vCoins.push_back(COutput(pcoin, i, nDepth,
+                	                                                 ((mine & ISMINE_SPENDABLE) != ISMINE_NO) ||
+                	                                                  (mine & ISMINE_WATCH_SOLVABLE) != ISMINE_NO));
             }
         }
     }

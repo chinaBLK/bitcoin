@@ -12,9 +12,6 @@
 
 using namespace std;
 
-unsigned int nStakeMinAge = 8 * 60 * 60; // 8 hours
-int nStakeMinConfirmations = 500;
-
 // Get time weight
 int64_t GetWeight(int64_t nIntervalBeginning, int64_t nIntervalEnd)
 {

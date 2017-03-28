@@ -13,8 +13,8 @@ static const int STAKE_TIMESTAMP_MASK = 15;
 // MODIFIER_INTERVAL: time to elapse before new modifier is computed
 extern unsigned int nModifierInterval;
 
-extern int nStakeMinConfirmations;
-extern unsigned int nStakeMinAge;
+static const int nStakeMinConfirmations = 500;
+static const unsigned int nStakeMinAge = 8 * 60 * 60; // 8 hours
 
 // MODIFIER_INTERVAL_RATIO:
 // ratio of group interval length between the last group and the first group
@@ -44,6 +44,7 @@ int64_t GetWeight(int64_t nIntervalBeginning, int64_t nIntervalEnd);
 bool CheckKernel(CBlockIndex* pindexPrev, unsigned int nBits, int64_t nTime, const COutPoint& prevout, int64_t* pBlockTime = NULL);
 inline unsigned int GetTargetSpacing(int nHeight, bool protocolV2) { return protocolV2 ? 64 : 60; }
 bool ReadFromDisk(CTransaction& tx, CDiskTxPos& txindex, CBlockTreeDB& txdb, COutPoint prevout);
+bool ReadFromDisk(CTransaction& tx, CDiskTxPos txindex);
 bool IsConfirmedInNPrevBlocks(const CDiskTxPos& txindex, const CBlockIndex* pindexFrom, int nMaxDepth, int& nActualDepth);
 
 #endif // PPCOIN_KERNEL_H
