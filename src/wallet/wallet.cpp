@@ -11,12 +11,12 @@
 #include "coincontrol.h"
 #include "consensus/consensus.h"
 #include "consensus/validation.h"
-#include "kernel.h"
 #include "key.h"
 #include "keystore.h"
 #include "main.h"
 #include "net.h"
 #include "policy/policy.h"
+#include "pos.h"
 #include "primitives/block.h"
 #include "primitives/transaction.h"
 #include "script/script.h"
@@ -592,7 +592,7 @@ bool CheckKernel(CBlockIndex* pindexPrev, unsigned int nBits, int64_t nTime, con
     if (pBlockTime)
         *pBlockTime = block.GetBlockTime();
 
-    return CheckStakeKernelHash(pindexPrev, nBits, block, txindex.nTxOffset - txindex.nPos, txPrev, prevout, nTime, hashProofOfStake, targetProofOfStake);
+    return CheckStakeKernelHash(pindexPrev, nBits, new CCoins(txPrev, pindexPrev->nHeight), prevout, nTime);
 }
 
 // miner's coin stake reward

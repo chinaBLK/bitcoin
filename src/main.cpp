@@ -17,7 +17,6 @@
 #include "hash.h"
 #include "init.h"
 #include "key.h"
-#include "kernel.h"
 #include "merkleblock.h"
 #include "net.h"
 #include "policy/policy.h"
@@ -416,61 +415,7 @@ void ProcessBlockAvailability(NodeId nodeid) {
     }
 }
 
-#ifdef ENABLE_WALLET
-// novacoin: attempt to generate suitable proof-of-stake
-bool SignBlock(CBlock& block, CWallet& wallet, int64_t nFees)
-{
-    // if we are trying to sign
-    //    something except proof-of-stake block template
-    if (!block.vtx[0].vout[0].IsEmpty())
-        return false;
 
-    // if we are trying to sign
-    //    a complete proof-of-stake block
-    if (block.IsProofOfStake())
-        return true;
-
-    static int64_t nLastCoinStakeSearchTime = GetAdjustedTime(); // startup timestamp
-
-    CKey key;
-    CTransaction txCoinStake;
-    int nBestHeight = pindexBestHeader->nHeight;
-    if (Params().GetConsensus().IsProtocolV2(nBestHeight+1))
-        txCoinStake.nTime &= ~STAKE_TIMESTAMP_MASK;
-
-    int64_t nSearchTime = txCoinStake.nTime; // search to current time
-
-    if (nSearchTime > nLastCoinStakeSearchTime)
-    {
-        int64_t nSearchInterval = Params().GetConsensus().IsProtocolV2(nBestHeight+1) ? 1 : nSearchTime - nLastCoinStakeSearchTime;
-        if (wallet.CreateCoinStake(wallet, block.nBits, nSearchInterval, nFees, txCoinStake, key))
-        {
-            if (txCoinStake.nTime >= pindexBestHeader->GetPastTimeLimit()+1)
-            {
-                // make sure coinstake would meet timestamp protocol
-                //    as it would be the same as the block timestamp
-            	block.vtx[0].nTime = block.nTime = txCoinStake.nTime;
-
-                // we have to make sure that we have no future timestamps in
-                //    our transactions set
-                for (vector<CTransaction>::iterator it = block.vtx.begin(); it != block.vtx.end();)
-                    if (it->nTime > block.nTime) { it = block.vtx.erase(it); } else { ++it; }
-
-                block.vtx.insert(block.vtx.begin() + 1, txCoinStake);
-
-                block.hashMerkleRoot = BlockMerkleRoot(block);
-
-                // append a signature to our block
-                return key.Sign(block.GetHash(), block.vchBlockSig);
-            }
-        }
-        nLastCoinStakeSearchInterval = nSearchTime - nLastCoinStakeSearchTime;
-        nLastCoinStakeSearchTime = nSearchTime;
-    }
-
-    return false;
-}
-#endif
 
 /** Update tracking information about which blocks a peer is assumed to have. */
 void UpdateBlockAvailability(NodeId nodeid, const uint256 &hash) {
@@ -1694,6 +1639,39 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
     if (block.GetHash() != pindex->GetBlockHash())
         return error("ReadBlockFromDisk(CBlock&, CBlockIndex*): GetHash() doesn't match index for %s at %s",
                 pindex->ToString(), pindex->GetBlockPos().ToString());
+    return true;
+}
+
+bool ReadFromDisk(CTransaction& tx, CDiskTxPos& txindex, CBlockTreeDB& txdb, COutPoint prevout)
+{
+    if (!txdb.ReadTxIndex(prevout.hash, txindex))
+        return false;
+    if (!ReadFromDisk(tx, txindex))
+        return false;
+    if (prevout.n >= tx.vout.size())
+    {
+        return false;
+    }
+    return true;
+}
+
+bool ReadFromDisk(CTransaction& tx, CDiskTxPos& txindex)
+{
+    CAutoFile filein(OpenBlockFile(txindex, true), SER_DISK, CLIENT_VERSION);
+    if (filein.IsNull())
+        return error("CTransaction::ReadFromDisk() : OpenBlockFile failed");
+
+    // Read transaction
+    CBlockHeader header;
+    try {
+        filein >> header;
+        fseek(filein.Get(), txindex.nTxOffset, SEEK_CUR);
+        filein >> tx;
+    }
+    catch (const std::exception& e) {
+        return error("%s: Deserialize or I/O error - %s", __func__, e.what());
+    }
+
     return true;
 }
 

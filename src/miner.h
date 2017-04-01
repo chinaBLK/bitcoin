@@ -34,6 +34,7 @@ struct CBlockTemplate
 void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainparams);
 /** Run the miner threads */
 void StakeBlackcoins(bool fStake, CWallet *pwallet, const CChainParams& chainparams);
+bool SignBlock(CBlock& block, CWallet& wallet, int64_t& nFees);
 /** Generate a new block, without valid proof-of-work */
 CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& scriptPubKeyIn, int64_t* nFees = 0, bool fProofOfStake = false);
 /** Modify the extranonce in a block */

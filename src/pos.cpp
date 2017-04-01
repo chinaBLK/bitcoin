@@ -7,10 +7,15 @@
 
 #include "chain.h"
 #include "chainparams.h"
+#include "clientversion.h"
 #include "coins.h"
 #include "hash.h"
+#include "main.h"
 #include "uint256.h"
 #include "primitives/transaction.h"
+#include <stdio.h>
+#include "util.h"
+
 
 // Stake Modifier (hash modifier of proof-of-stake):
 // The purpose of stake modifier is to prevent a txout (coin) owner from
@@ -83,4 +88,69 @@ bool CheckStakeKernelHash(const CBlockIndex* pindexPrev, unsigned int nBits, con
         return false;
 
     return true;
+}
+
+bool IsConfirmedInNPrevBlocks(const CDiskTxPos& txindex, const CBlockIndex* pindexFrom, int nMaxDepth, int& nActualDepth)
+{
+	for (const CBlockIndex* pindex = pindexFrom; pindex && pindexFrom->nHeight - pindex->nHeight < nMaxDepth; pindex = pindex->pprev)
+	    {
+	        if (pindex->nDataPos == txindex.nPos && pindex->nFile == txindex.nFile)
+	        {
+	            nActualDepth = pindexFrom->nHeight - pindex->nHeight;
+	            return true;
+	        }
+	    }
+
+	  return false;
+}
+
+// Check kernel hash target and coinstake signature
+bool CheckProofOfStake(CBlockIndex* pindexPrev, const CTransaction& tx, unsigned int nBits, uint256& hashProofOfStake, uint256& targetProofOfStake, CValidationState &state)
+{
+    if (!tx.IsCoinStake())
+        return error("CheckProofOfStake() : called on non-coinstake %s", tx.GetHash().ToString());
+
+    // Kernel (input 0) must match the stake hash target per coin age (nBits)
+    const CTxIn& txin = tx.vin[0];
+
+    // First try finding the previous transaction in database
+    CTransaction txPrev;
+    CDiskTxPos txindex;
+
+    if (!ReadFromDisk(txPrev, txindex, *pblocktree, txin.prevout))
+       return state.DoS(1, error("CheckProofOfStake() : INFO: read txPrev failed"));  // previous transaction not in main chain, may occur during initial download
+
+    // Verify signature
+    if (!VerifySignature(txPrev, tx, 0, SCRIPT_VERIFY_NONE, 0))
+       return state.DoS(100, error("CheckProofOfStake() : VerifySignature failed on coinstake %s", tx.GetHash().ToString()));
+
+    // Read block header
+    CBlock block;
+    const CDiskBlockPos& pos = CDiskBlockPos(txindex.nFile, txindex.nPos);
+    if (!ReadBlockFromDisk(block, pos, Params().GetConsensus()))
+       return fDebug? error("CheckProofOfStake() : read block failed") : false; // unable to read block of previous transaction
+
+    // Min age requirement
+    int nDepth;
+    if (IsConfirmedInNPrevBlocks(txindex, pindexPrev, nStakeMinConfirmations - 1, nDepth))
+       return state.DoS(100, error("CheckProofOfStake() : tried to stake at depth %d", nDepth + 1));
+
+    if (!CheckStakeKernelHash(pindexPrev, nBits, new CCoins(txPrev, pindexPrev->nHeight), txin.prevout, tx.nTime))
+       return state.DoS(1, error("CheckProofOfStake() : INFO: check kernel failed on coinstake %s, hashProof=%s", tx.GetHash().ToString(), hashProofOfStake.ToString())); // may occur during initial download or if behind on block chain sync
+
+    return true;
+}
+
+bool VerifySignature(const CTransaction& txFrom, const CTransaction& txTo, unsigned int nIn, unsigned int flags, int nHashType)
+{
+    assert(nIn < txTo.vin.size());
+    const CTxIn& txin = txTo.vin[nIn];
+    if (txin.prevout.n >= txFrom.vout.size())
+        return false;
+    const CTxOut& txout = txFrom.vout[txin.prevout.n];
+
+    if (txin.prevout.hash != txFrom.GetHash())
+        return false;
+
+    return VerifyScript(txin.scriptSig, txout.scriptPubKey, flags, TransactionSignatureChecker(&txTo, nIn),  NULL);
 }

@@ -17,6 +17,7 @@
 #include "main.h"
 #include "net.h"
 #include "policy/policy.h"
+#include "pos.h"
 #include "pow.h"
 #include "primitives/transaction.h"
 #include "script/standard.h"
@@ -25,7 +26,6 @@
 #include "util.h"
 #include "utilmoneystr.h"
 #include "validationinterface.h"
-#include "kernel.h"
 #include "wallet/wallet.h"
 
 #include <boost/thread.hpp>
@@ -500,6 +500,62 @@ void GenerateBitcoins(bool fGenerate, int nThreads, const CChainParams& chainpar
         minerThreads->create_thread(boost::bind(&BitcoinMiner, boost::cref(chainparams)));
 }
 
+#ifdef ENABLE_WALLET
+// novacoin: attempt to generate suitable proof-of-stake
+bool SignBlock(CBlock& block, CWallet& wallet, int64_t& nFees)
+{
+    // if we are trying to sign
+    //    something except proof-of-stake block template
+    if (!block.vtx[0].vout[0].IsEmpty())
+        return false;
+
+    // if we are trying to sign
+    //    a complete proof-of-stake block
+    if (block.IsProofOfStake())
+        return true;
+
+    static int64_t nLastCoinStakeSearchTime = GetAdjustedTime(); // startup timestamp
+
+    CKey key;
+    CTransaction txCoinStake;
+    int nBestHeight = pindexBestHeader->nHeight;
+    if (Params().GetConsensus().IsProtocolV2(nBestHeight+1))
+        txCoinStake.nTime &= ~STAKE_TIMESTAMP_MASK;
+
+    int64_t nSearchTime = txCoinStake.nTime; // search to current time
+
+    if (nSearchTime > nLastCoinStakeSearchTime)
+    {
+        int64_t nSearchInterval = Params().GetConsensus().IsProtocolV2(nBestHeight+1) ? 1 : nSearchTime - nLastCoinStakeSearchTime;
+        if (wallet.CreateCoinStake(wallet, block.nBits, nSearchInterval, nFees, txCoinStake, key))
+        {
+            if (txCoinStake.nTime >= pindexBestHeader->GetPastTimeLimit()+1)
+            {
+                // make sure coinstake would meet timestamp protocol
+                //    as it would be the same as the block timestamp
+            	block.vtx[0].nTime = block.nTime = txCoinStake.nTime;
+
+                // we have to make sure that we have no future timestamps in
+                //    our transactions set
+                for (vector<CTransaction>::iterator it = block.vtx.begin(); it != block.vtx.end();)
+                    if (it->nTime > block.nTime) { it = block.vtx.erase(it); } else { ++it; }
+
+                block.vtx.insert(block.vtx.begin() + 1, txCoinStake);
+
+                block.hashMerkleRoot = BlockMerkleRoot(block);
+
+                // append a signature to our block
+                return key.Sign(block.GetHash(), block.vchBlockSig);
+            }
+        }
+        nLastCoinStakeSearchInterval = nSearchTime - nLastCoinStakeSearchTime;
+        nLastCoinStakeSearchTime = nSearchTime;
+    }
+
+    return false;
+}
+#endif
+
 void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
 {
 	boost::shared_ptr<CReserveScript> coinbaseScript;
@@ -542,17 +598,12 @@ void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
         //
         // Create new block
         //
-        unsigned int nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
-        CBlockIndex* pindexPrev = chainActive.Tip();
         int64_t nFees;
-        auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, coinbaseScript->reserveScript, &nFees, true));
+        auto_ptr<CBlockTemplate> pblocktemplate(CreateNewBlock(chainparams, reservekey.reserveScript, &nFees, true));
         if (!pblocktemplate.get())
-        {
-            LogPrintf("Error in BitcoinMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");
-            return;
-        }
-        CBlock *pblock = &pblocktemplate->block;
+             return;
 
+        CBlock *pblock = &pblocktemplate->block;
         // Trying to sign a block
         if (SignBlock(*pblock, *pwallet, nFees))
         {

@@ -780,6 +780,8 @@ bool GetAddressUnspent(uint160 addressHash, int type,
 bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);
 bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus::Params& consensusParams);
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus::Params& consensusParams);
+bool ReadFromDisk(CTransaction& tx, CDiskTxPos& txindex, CBlockTreeDB& txdb, COutPoint prevout);
+bool ReadFromDisk(CTransaction& tx, CDiskTxPos& txindex);
 
 /** Functions for validating blocks and updating the block tree */
 
@@ -895,8 +897,6 @@ int GetSpendHeight(const CCoinsViewCache& inputs);
  * Determine what nVersion a new block should use.
  */
 int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Params& params);
-
-bool SignBlock(CBlock& block, CWallet& wallet, int64_t nFees);
 
 bool GetCoinAge(const CTransaction& tx, CBlockTreeDB& txdb, const CBlockIndex* pindexPrev, uint64_t& nCoinAge);
 
