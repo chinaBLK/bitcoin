@@ -558,9 +558,7 @@ bool SignBlock(CBlock& block, CWallet& wallet, int64_t& nFees)
 
 void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
 {
-	boost::shared_ptr<CReserveScript> coinbaseScript;
-	GetMainSignals().ScriptForMining(coinbaseScript);
-	CBlockIndex* pindexBest = chainActive.Tip();
+
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
 
     // Make this thread recognisable as the mining thread
@@ -588,7 +586,7 @@ void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
         if (fTryToSync)
         {
             fTryToSync = false;
-            if (vNodes.size() < 3 || pindexBest->GetBlockTime() < GetTime() - 10 * 60)
+            if (vNodes.size() < 3 || pindexBestHeader->GetBlockTime() < GetTime() - 10 * 60)
             {
                 MilliSleep(60000);
                 continue;
@@ -631,8 +629,7 @@ void StakeBlackcoins(bool fStake, CWallet *pwallet, const CChainParams& chainpar
 	if(fStake)
 	{
 	    stakeThread = new boost::thread_group();
-
-	    stakeThread->create_thread(boost::bind(&ThreadStakeMiner, boost::cref(pwallet), boost::cref(chainparams)));
+	    stakeThread->create_thread(boost::bind(&ThreadStakeMiner, pwallet, chainparams));
 	}
 }
 
