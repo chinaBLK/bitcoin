@@ -275,9 +275,9 @@ public:
 //        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nStartTime = 999999999999ULL; // never
 //        consensus.vDeployments[Consensus::DEPLOYMENT_CSV].nTimeout = 0; // out of time
 
-        consensus.nProtocolV1RetargetingFixedTime = 0;
-        consensus.nProtocolV2Time = 1488499200;
-        consensus.nProtocolV3Time = 1488585600;
+        consensus.nProtocolV1RetargetingFixedTime = 1400000000;
+        consensus.nProtocolV2Time = 1410000000;
+        consensus.nProtocolV3Time = 1420000000;
         consensus.nLastPOWBlock = 10000;
         consensus.nStakeTimestampMask = 0xf;
 
