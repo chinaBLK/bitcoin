@@ -2922,7 +2922,6 @@ bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
     if (fDoFullFlush || ((mode == FLUSH_STATE_ALWAYS || mode == FLUSH_STATE_PERIODIC) && nNow > nLastSetChain + (int64_t)DATABASE_WRITE_INTERVAL * 1000000)) {
         // Update best block in wallet (so we can detect restored wallets).
         GetMainSignals().SetBestChain(chainActive.GetLocator());
-        chainActive.Tip()->pprev->pnext = chainActive.Tip();
         nLastSetChain = nNow;
     }
     } catch (const std::runtime_error& e) {
