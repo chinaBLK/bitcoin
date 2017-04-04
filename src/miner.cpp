@@ -72,7 +72,7 @@ int64_t UpdateTime(CBlock* pblock, const Consensus::Params& consensusParams, con
 
     // Updating time can change work required on testnet:
     if (consensusParams.fPowAllowMinDifficultyBlocks)
-        pblock->nBits = GetNextTargetRequired(pindexPrev, pblock, false, consensusParams);
+        pblock->nBits = GetNextTargetRequired(pindexPrev, pblock, pblock->IsProofOfStake(), consensusParams);
 
     return nNewTime - nOldTime;
 }
@@ -292,7 +292,7 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
         if (!fProofOfStake)
-        UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
+        	UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
         pblock->nBits          = GetNextTargetRequired(pindexPrev, pblock, fProofOfStake, Params().GetConsensus());
         pblock->nNonce = 0;
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
@@ -386,6 +386,20 @@ void static BitcoinMiner(const CChainParams& chainparams)
                         break;
                     MilliSleep(1000);
                 } while (true);
+            }
+
+            //check the block height
+            if (chainActive.Tip()->nHeight > Params().consensus.nLastPOWBlock + nStakeMinConfirmations)
+            {
+                 // The stake is confirmed, stop the PoW miner
+                 throw boost::thread_interrupted();
+            }
+                 //check the next block height
+            else if (chainActive.Tip()->nHeight + 1 >= Params().consensus.nLastPOWBlock)
+            {
+                 // Wait for the stake to be confirmed
+                 MilliSleep(60000);
+                 continue;
             }
 
             //
