@@ -389,13 +389,13 @@ void static BitcoinMiner(const CChainParams& chainparams)
             }
 
             //check the block height
-            if (chainActive.Tip()->nHeight > Params().consensus.nLastPOWBlock + nStakeMinConfirmations)
+            if (chainActive.Tip()->nHeight > Params().LastPOWBlock() + nStakeMinConfirmations)
             {
                  // The stake is confirmed, stop the PoW miner
                  throw boost::thread_interrupted();
             }
                  //check the next block height
-            else if (chainActive.Tip()->nHeight + 1 >= Params().consensus.nLastPOWBlock)
+            else if (chainActive.Tip()->nHeight + 1 >= Params().LastPOWBlock())
             {
                  // Wait for the stake to be confirmed
                  MilliSleep(60000);
