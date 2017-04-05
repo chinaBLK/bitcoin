@@ -107,7 +107,6 @@ public:
 
     //! pointer to the index of the predecessor of this block
     CBlockIndex* pprev;
-    CBlockIndex* pnext;
 
     //! pointer to the index of some further predecessor of this block
     CBlockIndex* pskip;
@@ -175,7 +174,6 @@ public:
     {
         phashBlock = NULL;
         pprev = NULL;
-        pnext = NULL;
         pskip = NULL;
         nHeight = 0;
         nFile = 0;
@@ -353,17 +351,14 @@ class CDiskBlockIndex : public CBlockIndex
 {
 public:
     uint256 hashPrev;
-    uint256 hashNext;
     uint256 nHashBlock;
     CDiskBlockIndex() {
         hashPrev = uint256();
-        hashNext = uint256();
         nHashBlock = uint256();
     }
 
     explicit CDiskBlockIndex(const CBlockIndex* pindex) : CBlockIndex(*pindex) {
         hashPrev = (pprev ? pprev->GetBlockHash() : uint256());
-        hashNext = (pnext ? pnext->GetBlockHash() : uint256());
         nHashBlock = *pindex->phashBlock;
     }
 
@@ -389,7 +384,6 @@ public:
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
-        READWRITE(hashNext);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);

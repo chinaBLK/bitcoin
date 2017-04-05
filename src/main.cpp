@@ -2269,7 +2269,6 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
         if (pindex->pprev)
         {
             CDiskBlockIndex blockindexPrev(pindex->pprev);
-            blockindexPrev.hashNext.SetNull();
             if (!pblocktree->Write(make_pair('b', blockindexPrev.GetBlockHash()), CDiskBlockIndex(pindex)))
                 return error("DisconnectBlock() : WriteBlockIndex failed");
         }
