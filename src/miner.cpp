@@ -77,6 +77,14 @@ int64_t UpdateTime(CBlock* pblock, const Consensus::Params& consensusParams, con
     return nNewTime - nOldTime;
 }
 
+// miner's coin base reward (POW)
+CAmount GetProofOfWorkReward()
+{
+    CAmount nSubsidy = 10000 * COIN;
+
+    return nSubsidy;
+}
+
 CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& scriptPubKeyIn, int64_t* pFees, bool fProofOfStake)
 {
     // Create new block
@@ -90,9 +98,22 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
     txNew.vin.resize(1);
     txNew.vin[0].prevout.SetNull();
     txNew.vout.resize(1);
+    txNew.nTime = GetAdjustedTime();
+    int nHeight = chainActive.Tip()->nHeight + 1;
+    if (!fProofOfStake)
+    {
+    	txNew.vout[0].scriptPubKey = scriptPubKeyIn;
+    }
+    else
+    {
+    	txNew.vin[0].scriptSig = (CScript() << nHeight) + COINBASE_FLAGS;
+    	txNew.vout[0].SetEmpty();
+    }
+
+    pblock->vtx.push_back(txNew);
+
 
     // Add dummy coinbase tx as first transaction
-    pblock->vtx.push_back(CTransaction());
     pblocktemplate->vTxFees.push_back(-1); // updated at end
     pblocktemplate->vTxSigOps.push_back(-1); // updated at end
 
@@ -284,7 +305,8 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
 		LogPrintf("CreateNewBlock(): total size %u txs: %u fees: %ld sigops %d\n", nBlockSize, nBlockTx, nFees, nBlockSigOps);
 
         // Compute final coinbase transaction.
-        txNew.vout[0].nValue = nFees +  GetProofOfWorkSubsidy();
+		if (!fProofOfStake)
+			txNew.vout[0].nValue = nFees +  GetProofOfWorkSubsidy();
         txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
         pblock->vtx[0] = txNew;
         pblocktemplate->vTxFees[0] = -nFees;
@@ -298,7 +320,7 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
         
         CValidationState state;
-        if (!TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false, false)) {
+        if (!fProofOfStake && !TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false, false)) {
             throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
         }
     }
