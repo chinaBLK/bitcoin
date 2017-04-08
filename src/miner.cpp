@@ -63,7 +63,6 @@ public:
 
 int64_t UpdateTime(CBlock* pblock, const Consensus::Params& consensusParams, const CBlockIndex* pindexPrev)
 {
-	assert(pblock->IsProofOfWork());
     int64_t nOldTime = pblock->nTime;
     int64_t nNewTime = std::max(pindexPrev->GetPastTimeLimit()+1, GetAdjustedTime());
 
@@ -72,7 +71,8 @@ int64_t UpdateTime(CBlock* pblock, const Consensus::Params& consensusParams, con
 
     // Updating time can change work required on testnet:
     if (consensusParams.fPowAllowMinDifficultyBlocks)
-        pblock->nBits = GetNextTargetRequired(pindexPrev, pblock, pblock->IsProofOfStake(), consensusParams);
+    	pblock->nBits =  GetNextTargetRequired(pindexPrev, pblock, pblock->IsProofOfStake(),consensusParams);
+
 
     return nNewTime - nOldTime;
 }
@@ -84,6 +84,14 @@ CAmount GetProofOfWorkReward()
 
     return nSubsidy;
 }
+
+int64_t GetMaxTransactionTime(CBlock* pblock)
+    {
+        int64_t maxTransactionTime = 0;
+        for (std::vector<CTransaction>::const_iterator it(pblock->vtx.begin()); it != pblock->vtx.end(); ++it)
+        		maxTransactionTime = std::max(maxTransactionTime, (int64_t)it->nTime);
+        return maxTransactionTime;
+    }
 
 CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& scriptPubKeyIn, int64_t* pFees, bool fProofOfStake)
 {
@@ -110,10 +118,8 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
     	txNew.vout[0].SetEmpty();
     }
 
-    pblock->vtx.push_back(txNew);
-
-
     // Add dummy coinbase tx as first transaction
+    pblock->vtx.push_back(CTransaction());
     pblocktemplate->vTxFees.push_back(-1); // updated at end
     pblocktemplate->vTxSigOps.push_back(-1); // updated at end
 
@@ -305,24 +311,28 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
 		LogPrintf("CreateNewBlock(): total size %u txs: %u fees: %ld sigops %d\n", nBlockSize, nBlockTx, nFees, nBlockSigOps);
 
         // Compute final coinbase transaction.
-		if (!fProofOfStake)
+		if (!fProofOfStake) {
 			txNew.vout[0].nValue = nFees +  GetProofOfWorkSubsidy();
-        txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
+			txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
+			pblocktemplate->vTxFees[0] = -nFees;
+		}
+
         pblock->vtx[0] = txNew;
-        pblocktemplate->vTxFees[0] = -nFees;
+
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
+        pblock->nTime          = max(pindexPrev->GetPastTimeLimit()+1, GetMaxTransactionTime(pblock));
         if (!fProofOfStake)
         	UpdateTime(pblock, Params().GetConsensus(), pindexPrev);
-        pblock->nBits          = GetNextTargetRequired(pindexPrev, pblock, fProofOfStake, Params().GetConsensus());
+        pblock->nBits = GetNextTargetRequired(pindexPrev, pblock, fProofOfStake, Params().GetConsensus());
         pblock->nNonce = 0;
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
         
-        CValidationState state;
-        if (!fProofOfStake && !TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false, false)) {
-            throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
-        }
+//        CValidationState state;
+//        if (!fProofOfStake && !TestBlockValidity(state, chainparams, *pblock, pindexPrev, false, false, false)) {
+//            throw std::runtime_error(strprintf("%s: TestBlockValidity failed: %s", __func__, FormatStateMessage(state)));
+//        }
     }
     
     return pblocktemplate.release();
@@ -417,7 +427,7 @@ void static BitcoinMiner(const CChainParams& chainparams)
                  throw boost::thread_interrupted();
             }
                  //check the next block height
-            else if (chainActive.Tip()->nHeight + 1 >= Params().LastPOWBlock())
+            else if (chainActive.Tip()->nHeight + 1 > Params().LastPOWBlock())
             {
                  // Wait for the stake to be confirmed
                  MilliSleep(60000);
@@ -491,7 +501,7 @@ void static BitcoinMiner(const CChainParams& chainparams)
                     break;
 
                 // Update nTime every few seconds
-                if (UpdateTime(pblock, chainparams.GetConsensus(), pindexPrev) < 0)
+                if (UpdateTime(pblock, Params().GetConsensus(), pindexPrev) < 0)
                     break; // Recreate the block if the clock has run backwards,
                            // so that we can use the correct time.
                 if (chainparams.GetConsensus().fPowAllowMinDifficultyBlocks)

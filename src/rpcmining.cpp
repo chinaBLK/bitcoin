@@ -37,9 +37,6 @@ using namespace std;
 UniValue GetNetworkHashPS(int lookup, int height) {
     CBlockIndex *pb = chainActive.Tip();
 
-    if (height >= Params().GetConsensus().nLastPOWBlock)
-    	return 0;
-
     if (height >= 0 && height < chainActive.Height())
         pb = chainActive[height];
 
@@ -444,7 +441,7 @@ UniValue getblocktemplate(const UniValue& params, bool fHelp)
     if (IsInitialBlockDownload())
         throw JSONRPCError(RPC_CLIENT_IN_INITIAL_DOWNLOAD, "Bitcoin is downloading blocks...");
 
-    if (chainActive.Tip()->nHeight >= Params().GetConsensus().nLastPOWBlock)
+    if (chainActive.Tip()->nHeight > Params().GetConsensus().nLastPOWBlock)
     	throw JSONRPCError(RPC_MISC_ERROR, "No more PoW blocks");
 
     static unsigned int nTransactionsUpdatedLast;
