@@ -106,7 +106,6 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
     txNew.vin.resize(1);
     txNew.vin[0].prevout.SetNull();
     txNew.vout.resize(1);
-    txNew.nTime = GetAdjustedTime();
     int nHeight = chainActive.Tip()->nHeight + 1;
     if (!fProofOfStake)
     {
@@ -167,12 +166,8 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
         pblock->nVersion = ComputeBlockVersion(pindexPrev, chainparams.GetConsensus());
         // -regtest only: allow overriding block.nVersion with
         // -blockversion=N to test forking scenarios
-        if (chainparams.MineBlocksOnDemand()){
+        if (chainparams.MineBlocksOnDemand())
         	pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
-        	txNew.nTime = pblock->GetBlockTime();
-
-        }
-
 
         int64_t nLockTimeCutoff = pblock->GetBlockTime();
 
@@ -316,7 +311,7 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
 			txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
 			pblocktemplate->vTxFees[0] = -nFees;
 		}
-
+		txNew.nTime = pblock->nTime;
         pblock->vtx[0] = txNew;
 
 

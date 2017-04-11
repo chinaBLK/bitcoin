@@ -59,7 +59,7 @@ bool IsStandard(const CScript& scriptPubKey, txnouttype& whichType)
 int64_t FutureDrift(int64_t nTime)
 {
 	// loose policy for FutureDrift in regtest mode
-	if (Params().GetConsensus().fPowNoRetargeting && chainActive.Height() < Params().GetConsensus().nLastPOWBlock) {
+	if (Params().GetConsensus().fPowNoRetargeting && chainActive.Height() <= Params().GetConsensus().nLastPOWBlock) {
 	         return nTime + 24 * 60 * 60;
 	}
     return Params().GetConsensus().IsProtocolV2(nTime) ? nTime + 15 : nTime + 10 * 60;
