@@ -628,7 +628,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     CAmount nBalance = GetBalance();
 
     if (nBalance <= nReserveBalance)
-        return false;
+    	return false;
 
     vector<const CWalletTx*> vwtxPrev;
 
@@ -638,10 +638,12 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     // Select coins with suitable depth
     CAmount nTargetValue = nBalance - nReserveBalance;
     if (!SelectCoinsForStaking(nTargetValue, setCoins, nValueIn))
-        return false;
+    	return false;
+
 
     if (setCoins.empty())
-        return false;
+    	return false;
+
 
     int64_t nCredit = 0;
     CScript scriptPubKeyKernel;
@@ -688,14 +690,14 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
                 }
                 if (whichType == TX_PUBKEY)
                 {
-                	vector<unsigned char>& vchPubKey = vSolutions[0];
-                    if (!keystore.GetKey(uint160(vchPubKey), key))
+
+                    if (!keystore.GetKey(Hash160(vSolutions[0]), key))
                     {
                         LogPrint("coinstake", "CreateCoinStake : failed to get key for kernel type=%d\n", whichType);
                         break;  // unable to find corresponding public key
                     }
 
-                    if (key.GetPubKey() != vchPubKey)
+                    if (key.GetPubKey() != vSolutions[0])
                     {
                         LogPrint("coinstake", "CreateCoinStake : invalid key for kernel type=%d\n", whichType);
                         break; // keys mismatch

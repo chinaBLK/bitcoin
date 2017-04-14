@@ -303,7 +303,7 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
         }
         nLastBlockTx = nBlockTx;
         nLastBlockSize = nBlockSize;
-		LogPrintf("CreateNewBlock(): total size %u txs: %u fees: %ld sigops %d\n", nBlockSize, nBlockTx, nFees, nBlockSigOps);
+		// LogPrintf("CreateNewBlock(): total size %u txs: %u fees: %ld sigops %d\n", nBlockSize, nBlockTx, nFees, nBlockSigOps);
 
         // Compute final coinbase transaction.
 		if (!fProofOfStake) {
@@ -547,23 +547,31 @@ bool SignBlock(CBlock& block, CWallet& wallet, int64_t& nFees)
 {
     // if we are trying to sign
     //    something except proof-of-stake block template
-    if (!block.vtx[0].vout[0].IsEmpty())
-        return false;
+    if (!block.vtx[0].vout[0].IsEmpty()){
+    	LogPrintf("something except proof-of-stake block\n");
+    	return false;
+    }
+
 
     // if we are trying to sign
     //    a complete proof-of-stake block
-    if (block.IsProofOfStake())
-        return true;
+    if (block.IsProofOfStake()){
+    	LogPrintf("trying to sign a complete proof-of-stake block\n");
+    	return true;
+    }
+
 
     static int64_t nLastCoinStakeSearchTime = GetAdjustedTime(); // startup timestamp
 
     CKey key;
     CTransaction txCoinStake;
+    txCoinStake.nTime = GetAdjustedTime();
     int nBestHeight = pindexBestHeader->nHeight;
     if (Params().GetConsensus().IsProtocolV2(nBestHeight+1))
         txCoinStake.nTime &= ~STAKE_TIMESTAMP_MASK;
 
     int64_t nSearchTime = txCoinStake.nTime; // search to current time
+
 
     if (nSearchTime > nLastCoinStakeSearchTime)
     {
@@ -608,7 +616,7 @@ void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
     CReserveKey reservekey(pwallet);
 
     bool fTryToSync = true;
-
+    
     while (true)
     {
         while (pwallet->IsLocked())
@@ -656,24 +664,6 @@ void ThreadStakeMiner(CWallet *pwallet, const CChainParams& chainparams)
     }
 }
 
-void StakeBlackcoins(bool fStake, CWallet *pwallet, const CChainParams& chainparams)
-{
-    static boost::thread_group* stakeThread = NULL;
-
-    if (stakeThread != NULL)
-    {
-        stakeThread->interrupt_all();
-        delete stakeThread;
-        stakeThread = NULL;
-    }
-
-	if(fStake)
-	{
-	    stakeThread = new boost::thread_group();
-	    stakeThread->create_thread(boost::bind(&ThreadStakeMiner, pwallet, chainparams));
-	}
-}
-
 bool CheckStake(CBlock* pblock, CWallet& wallet, const CChainParams& chainparams)
 {
     uint256 proofHash, hashTarget;
@@ -695,7 +685,7 @@ bool CheckStake(CBlock* pblock, CWallet& wallet, const CChainParams& chainparams
     // Found a solution
     {
         LOCK(cs_main);
-        if (pblock->hashPrevBlock != pblock->GetHash())
+        if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash())
             return error("CheckStake() : generated block is stale");
 
         // Track how many getdata requests this block gets

@@ -191,13 +191,7 @@ void Shutdown()
     StopREST();
     StopRPC();
     StopHTTPServer();
-#ifdef ENABLE_WALLET
-    if (pwalletMain)
-    {
-    	StakeBlackcoins(false, pwalletMain, Params());
-        pwalletMain->Flush(false);
-    }
-#endif
+
     GenerateBitcoins(false, 0, Params());
     StopNode();
     StopTorControl();
@@ -1705,8 +1699,11 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Mine proof-of-stake blocks in the background
     if (!GetBoolArg("-staking", true))
         LogPrintf("Staking disabled\n");
-    else if (pwalletMain)
-    	StakeBlackcoins(true, pwalletMain, Params());
+    else if (pwalletMain){
+    	LogPrintf("Staking enabled\n");
+    	threadGroup.create_thread(boost::bind(&ThreadStakeMiner, pwalletMain, chainparams));
+    }
+
 #endif
     SetRPCWarmupFinished();
     uiInterface.InitMessage(_("Done loading"));
