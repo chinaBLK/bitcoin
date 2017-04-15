@@ -567,16 +567,14 @@ bool SignBlock(CBlock& block, CWallet& wallet, int64_t& nFees)
     CTransaction txCoinStake;
     txCoinStake.nTime = GetAdjustedTime();
     int nBestHeight = pindexBestHeader->nHeight;
-    if (Params().GetConsensus().IsProtocolV2(nBestHeight+1))
-        txCoinStake.nTime &= ~STAKE_TIMESTAMP_MASK;
+    txCoinStake.nTime &= ~STAKE_TIMESTAMP_MASK;
 
     int64_t nSearchTime = txCoinStake.nTime; // search to current time
 
 
     if (nSearchTime > nLastCoinStakeSearchTime)
     {
-        int64_t nSearchInterval = Params().GetConsensus().IsProtocolV2(nBestHeight+1) ? 1 : nSearchTime - nLastCoinStakeSearchTime;
-        if (wallet.CreateCoinStake(wallet, block.nBits, nSearchInterval, nFees, txCoinStake, key))
+        if (wallet.CreateCoinStake(wallet, block.nBits, 1, nFees, txCoinStake, key))
         {
             if (txCoinStake.nTime >= pindexBestHeader->GetPastTimeLimit()+1)
             {
