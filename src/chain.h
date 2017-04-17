@@ -92,6 +92,9 @@ enum BlockStatus {
     BLOCK_FAILED_CHILD       =   64, //! descends from failed block
     BLOCK_FAILED_MASK        =   BLOCK_FAILED_VALID | BLOCK_FAILED_CHILD,
 	BLOCK_PROOF_OF_STAKE     =   128, //! is proof-of-stake block
+	BLOCK_STAKE_ENTROPY		 =	 256,
+	BLOCK_STAKE_MODIFIER	 =	 512,
+
 };
 
 /** The block chain is a tree shaped structure starting with the
@@ -148,15 +151,6 @@ public:
     unsigned int nBits;
     unsigned int nNonce;
 
-    unsigned int nFlags;  // ppcoin: block index flags
-    enum
-    {
-       BLOCK_PROOF_OF_STAKE = (1 << 0), // is proof-of-stake block
-       BLOCK_STAKE_ENTROPY  = (1 << 1), // entropy bit for stake modifier
-       BLOCK_STAKE_MODIFIER = (1 << 2), // regenerated stake modifier
-    };
-
-
     uint256 bnStakeModifierV2;
 
     // proof-of-stake specific fields
@@ -191,7 +185,6 @@ public:
         nTime          = 0;
         nBits          = 0;
         nNonce         = 0;
-        nFlags         = 0;
     }
 
     CBlockIndex()
@@ -257,7 +250,7 @@ public:
     }
     bool GeneratedStakeModifier() const
     {
-            return (nFlags & BLOCK_STAKE_MODIFIER);
+            return (nStatus & BLOCK_STAKE_MODIFIER);
     }
     // entropy bit for stake modifier if chosen by modifier
     unsigned int GetStakeEntropyBit() const
