@@ -731,7 +731,6 @@ UniValue checkkernel(const UniValue& params, bool fHelp)
 	    COutPoint kernel;
 	    CBlockIndex* pindexPrev = chainActive.Tip();
 	    CBlockHeader blockHeader = pindexPrev->GetBlockHeader();
-	    const Consensus::Params& consensus = Params().GetConsensus();
 	    unsigned int nBits = GetNextTargetRequired(pindexPrev, &blockHeader, true, Params().GetConsensus());
 	    int64_t nTime = GetAdjustedTime();
 	    nTime &= ~STAKE_TIMESTAMP_MASK;
