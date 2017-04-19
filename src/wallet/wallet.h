@@ -947,5 +947,5 @@ public:
 private:
     std::vector<char> _ssExtra;
 };
-
+bool CheckKernel(CBlockIndex* pindexPrev, unsigned int nBits, int64_t nTime, const COutPoint& prevout, int64_t* pBlockTime = NULL);
 #endif // BITCOIN_WALLET_WALLET_H
