@@ -564,7 +564,8 @@ bool SignBlock(CBlock& block, CWallet& wallet, int64_t& nFees)
     static int64_t nLastCoinStakeSearchTime = GetAdjustedTime(); // startup timestamp
 
     CKey key;
-    CTransaction txCoinStake;
+    CMutableTransaction txCoinBase(block.vtx[0]);
+    CMutableTransaction txCoinStake;
     txCoinStake.nTime = GetAdjustedTime();
     int nBestHeight = pindexBestHeader->nHeight;
     txCoinStake.nTime &= ~STAKE_TIMESTAMP_MASK;
@@ -580,7 +581,8 @@ bool SignBlock(CBlock& block, CWallet& wallet, int64_t& nFees)
             {
                 // make sure coinstake would meet timestamp protocol
                 //    as it would be the same as the block timestamp
-            	block.vtx[0].nTime = block.nTime = txCoinStake.nTime;
+            	txCoinBase.nTime = block.nTime = txCoinStake.nTime;
+            	block.vtx[0] = txCoinBase;
 
                 // we have to make sure that we have no future timestamps in
                 //    our transactions set
