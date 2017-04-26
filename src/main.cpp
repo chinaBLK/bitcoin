@@ -4433,7 +4433,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && pindex == pindexState && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             bool fClean = true;
-            if (!DisconnectBlock(block, state, pindex, coins, &fClean))
+            if (pindex->IsProofOfStake() && !DisconnectBlock(block, state, pindex, coins, &fClean))
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             pindexState = pindex->pprev;
             if (!fClean) {
@@ -4458,7 +4458,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
-            if (!ConnectBlock(block, state, pindex, coins))
+            if (pindex->IsProofOfStake() && !ConnectBlock(block, state, pindex, coins))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }

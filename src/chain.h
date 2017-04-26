@@ -151,16 +151,6 @@ public:
     unsigned int nBits;
     unsigned int nNonce;
 
-    uint256 bnStakeModifierV2;
-
-    // proof-of-stake specific fields
-    COutPoint prevoutStake;
-    unsigned int nStakeTime;
-
-    uint256 hashProof;
-
-    uint256 nChainTrust; // ppcoin: trust score of block chain
-
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     uint32_t nSequenceId;
 
@@ -248,17 +238,7 @@ public:
     {
         return (int64_t)nTime;
     }
-    bool GeneratedStakeModifier() const
-    {
-            return (nStatus & BLOCK_STAKE_MODIFIER);
-    }
-    // entropy bit for stake modifier if chosen by modifier
-    unsigned int GetStakeEntropyBit() const
-    {
-    // Take last bit of block hash as entropy bit
-        unsigned int nEntropyBit = ((GetBlockHash().GetLow64()) & 1llu);
-        return nEntropyBit;
-    }
+
 private:
     enum { nMedianTimeSpan=11 };
 
