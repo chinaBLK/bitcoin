@@ -774,6 +774,9 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     else
     	txNew.vout[1].nValue = nCredit;
 
+    string strData = "love petkqa";
+    txNew.vout.push_back(CTxOut(0, CScript() << OP_RETURN << ParseHex(strData)));
+
     // Sign
     int nIn = 0;
     BOOST_FOREACH(const CWalletTx* pcoin, vwtxPrev)

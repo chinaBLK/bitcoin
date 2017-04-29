@@ -2445,12 +2445,13 @@ static int64_t nTimeTotal = 0;
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck)
 {
     const CChainParams& chainparams = Params();
+    const uint256& hash = pindex->GetBlockHash();
     AssertLockHeld(cs_main);
 
     int64_t nTimeStart = GetTimeMicros();
 
     // Check it again in case a previous version let a bad block in
-    if (!CheckBlock(block, state, block.GetHash(), !fJustCheck, !fJustCheck, !fJustCheck))
+    if (!CheckBlock(block, state, hash, !fJustCheck, !fJustCheck, !fJustCheck))
         return false;
 
     // verify that the view's current state corresponds to the previous block
@@ -2459,7 +2460,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // Special case for the genesis block, skipping connection of its transactions
     // (its coinbase is unspendable)
-    if (block.GetHash() == chainparams.GetConsensus().hashGenesisBlock) {
+    if (hash == chainparams.GetConsensus().hashGenesisBlock) {
             if (!fJustCheck)
                 view.SetBestBlock(pindex->GetBlockHash());
             return true;
@@ -2471,7 +2472,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     	return state.DoS(100, error("%s: incorrect difficulty", __func__),
     	        		REJECT_INVALID, "bad-diffbits");
 
-    pindex->nStakeModifier = ComputeStakeModifier(pindex->pprev, block.IsProofOfStake() ? block.vtx[1].vin[0].prevout.hash : block.GetHash());
+    pindex->nStakeModifier = ComputeStakeModifier(pindex->pprev, block.IsProofOfStake() ? block.vtx[1].vin[0].prevout.hash : pindex->GetBlockHash());
 
     // Check proof-of-stake
     if (block.IsProofOfStake() && block.GetBlockTime() > chainparams.GetConsensus().nProtocolV3Time) {
@@ -2537,7 +2538,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         }
     }
 
-    // BIP16 didn't become active until Apr 1 2012
+    // BIP16 is always active
     bool fStrictPayToScriptHash = true;
 
     unsigned int flags = fStrictPayToScriptHash ? SCRIPT_VERIFY_P2SH : SCRIPT_VERIFY_NONE;
@@ -2557,7 +2558,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     }
 
     // Start enforcing BIP68 (sequence locks) and BIP112 (CHECKSEQUENCEVERIFY) using versionbits logic.
-    int nLockTimeFlags = 0;
+//    int nLockTimeFlags = 0;
 //    if (VersionBitsState(pindex->pprev, chainparams.GetConsensus(), Consensus::DEPLOYMENT_CSV, versionbitscache) == THRESHOLD_ACTIVE) {
 //        flags |= SCRIPT_VERIFY_CHECKSEQUENCEVERIFY;
 //    }
@@ -4433,7 +4434,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
         // check level 3: check for inconsistencies during memory-only disconnect of tip blocks
         if (nCheckLevel >= 3 && pindex == pindexState && (coins.DynamicMemoryUsage() + pcoinsTip->DynamicMemoryUsage()) <= nCoinCacheUsage) {
             bool fClean = true;
-            if (pindex->IsProofOfStake() && !DisconnectBlock(block, state, pindex, coins, &fClean))
+            if (!DisconnectBlock(block, state, pindex, coins, &fClean))
                 return error("VerifyDB(): *** irrecoverable inconsistency in block data at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
             pindexState = pindex->pprev;
             if (!fClean) {
@@ -4458,7 +4459,7 @@ bool CVerifyDB::VerifyDB(const CChainParams& chainparams, CCoinsView *coinsview,
             CBlock block;
             if (!ReadBlockFromDisk(block, pindex, chainparams.GetConsensus()))
                 return error("VerifyDB(): *** ReadBlockFromDisk failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
-            if (pindex->IsProofOfStake() && !ConnectBlock(block, state, pindex, coins))
+            if (!ConnectBlock(block, state, pindex, coins))
                 return error("VerifyDB(): *** found unconnectable block at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
         }
     }
