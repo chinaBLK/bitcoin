@@ -3865,7 +3865,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     	return state.DoS(100, error("%s : reject proof-of-work at height %d", __func__, nHeight), REJECT_INVALID, "bad-pow-height");
 
     // Start enforcing BIP113 (Median Time Past) using versionbits logic.
-    int nLockTimeFlags = 0;
+    // int nLockTimeFlags = 0;
 
     int64_t nLockTimeCutoff = block.GetBlockTime();
 
