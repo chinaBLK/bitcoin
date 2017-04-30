@@ -2264,15 +2264,6 @@ bool DisconnectBlock(const CBlock& block, CValidationState& state, const CBlockI
         }
     }
 
-    // Update block index on disk without changing it in memory.
-        // The memory index structure will be changed after the db commits.
-        if (pindex->pprev)
-        {
-            CDiskBlockIndex blockindexPrev(pindex->pprev);
-            if (!pblocktree->Write(make_pair('b', blockindexPrev.GetBlockHash()), CDiskBlockIndex(pindex)))
-                return error("DisconnectBlock() : WriteBlockIndex failed");
-        }
-
     // move best block pointer to prevout block
     view.SetBestBlock(pindex->pprev->GetBlockHash());
 
@@ -3865,7 +3856,7 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     	return state.DoS(100, error("%s : reject proof-of-work at height %d", __func__, nHeight), REJECT_INVALID, "bad-pow-height");
 
     // Start enforcing BIP113 (Median Time Past) using versionbits logic.
-    // int nLockTimeFlags = 0;
+    int nLockTimeFlags = 0;
 
     int64_t nLockTimeCutoff = block.GetBlockTime();
 
