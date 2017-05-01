@@ -313,6 +313,8 @@ CBlockTemplate* CreateNewBlock(const CChainParams& chainparams, const CScript& s
 		txNew.nTime = pblock->nTime;
         pblock->vtx[0] = txNew;
 
+        if (pFees)
+        	*pFees = nFees;
 
         // Fill in header
         pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
